@@ -1,5 +1,6 @@
 package com.jomariabejo.connectly_api.dto;
 
+import com.jomariabejo.connectly_api.model.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

@@ -1,49 +1,86 @@
 package com.jomariabejo.connectly_api.service;
 
-
-import com.jomariabejo.connectly_api.dto.RegisterRequest;
 import com.jomariabejo.connectly_api.dto.AuthResponse;
-import com.jomariabejo.connectly_api.model.Role;
+import com.jomariabejo.connectly_api.dto.LoginRequest;
+import com.jomariabejo.connectly_api.dto.RegisterRequest;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.repository.UserRepository;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import com.jomariabejo.connectly_api.util.JwtUtil;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
 
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final BCryptPasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    @Autowired
+    public UserService(UserRepository userRepository, BCryptPasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtUtil = jwtUtil;
     }
 
-    @Transactional
+    /**
+     * Registers a new user by encrypting the password and saving the user to the database.
+     *
+     * @param registerRequest the DTO containing user registration data.
+     * @return AuthResponse with success or failure message.
+     */
     public AuthResponse registerUser(RegisterRequest registerRequest) {
-        // Check if username already exists
+        // Check if the username or email already exists
         if (userRepository.existsByUsername(registerRequest.getUsername())) {
-            return new AuthResponse("Username is already taken", false);
+            return new AuthResponse(false, "Username already taken");
         }
 
-        // Check if email already exists
         if (userRepository.existsByEmail(registerRequest.getEmail())) {
-            return new AuthResponse("Email is already in use", false);
+            return new AuthResponse(false, "Email already in use");
         }
 
-        // Create new user
-        User user = new User(
-                registerRequest.getUsername(),
-                passwordEncoder.encode(registerRequest.getPassword()),
-                registerRequest.getEmail(),
-                Role.USER  // Default role for new users
-        );
+        // Encrypt the password
+        String encryptedPassword = passwordEncoder.encode(registerRequest.getPassword());
 
-        // Save user to database
-        userRepository.save(user);
+        // Create a new user
+        User newUser = new User();
+        newUser.setUsername(registerRequest.getUsername());
+        newUser.setPassword(encryptedPassword);
+        newUser.setEmail(registerRequest.getEmail());
+//        newUser.setRole(registerRequest.getRole());  // Assuming the role is passed in the registration request
+//        newUser.setEnabled(true);  // User is enabled by default
 
-        return new AuthResponse("User registered successfully", true);
+        try {
+            // Save the new user to the database
+            userRepository.save(newUser);
+        } catch (Exception e) {
+            return new AuthResponse(false, "Error saving user: " + e.getMessage());
+        }
+
+        // Return success response
+        return new AuthResponse(true, "Registration successful");
+    }
+
+    /**
+     * Authenticates a user, checking their credentials and generating a JWT token.
+     *
+     * @param loginRequest the DTO containing login credentials (username/email and password).
+     * @return AuthResponse with success status and JWT token or error message.
+     */
+    public AuthResponse loginUser(LoginRequest loginRequest) {
+        // Find user by username or email
+        Optional<User> userOptional = userRepository.findByUsernameOrEmail(loginRequest.getUsernameOrEmail(), loginRequest.getUsernameOrEmail());
+
+        // If user not found or password doesn't match, return failure response
+        return userOptional
+                .filter(user -> passwordEncoder.matches(loginRequest.getPassword(), user.getPassword()))
+                .map(user -> {
+                    String token = jwtUtil.generateToken(user);
+                    return new AuthResponse("Login successful", true, token);
+                })
+                .orElseGet(() -> new AuthResponse(false, "Invalid credentials"));
     }
 }

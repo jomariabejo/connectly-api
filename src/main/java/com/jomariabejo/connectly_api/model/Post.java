@@ -1,16 +1,17 @@
 package com.jomariabejo.connectly_api.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
-import jakarta.persistence.ManyToOne;
+import com.vladmihalcea.hibernate.type.json.JsonType;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import org.hibernate.annotations.Type;
 
 import java.time.LocalDateTime;
 
 @Entity
+@Getter
+@Setter
+@Table(name = "post")
 public class Post {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -18,17 +19,20 @@ public class Post {
 
     private String title;
     private String content;
+
+    @Column(name = "post_type")
     private String postType;
 
-    @Lob
-    private String metadata; // For JSON data
+    @Type(JsonType.class)
+    @Column(columnDefinition = "jsonb")
+    private String metadata;
 
     @ManyToOne
     @JoinColumn(name = "created_by")
     private User createdBy;
 
+    @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
     private String privacy;
-
 }

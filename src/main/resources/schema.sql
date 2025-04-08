@@ -1,62 +1,155 @@
--- Optional: Define the Role Enum type in the database if your DBMS supports it (PostgreSQL example).
--- If your DBMS does not support Enum, we will use VARCHAR instead.
--- PostgreSQL ENUM type
+-- ==========================================================
+-- Role Enum Type Definition
+-- ==========================================================
+-- This section defines an enum type 'role_enum' for user roles.
+-- The roles defined are 'ADMIN' and 'USER', which will be used
+-- for assigning user roles in the application.
+
+-- Drop the role enum type if it already exists (to avoid errors during re-runs)
+DROP TYPE IF EXISTS role_enum;
+
+-- Create the 'role_enum' type with 'ADMIN' and 'USER' as valid values
 CREATE TYPE role_enum AS ENUM ('ADMIN', 'USER');
 
--- User Table (Custom User entity for Spring Security)
-CREATE TABLE IF NOT EXISTS "user"
+-- ==========================================================
+-- User Table (app_user)
+-- ==========================================================
+-- The 'app_user' table stores information about the users of the application.
+-- It contains fields for user credentials (username, password, email),
+-- user role, account status (enabled/disabled), and timestamps for account creation and updates.
+
+-- Drop the app_user table if it already exists (to avoid errors during re-runs)
+DROP TABLE IF EXISTS app_user;
+
+-- Create the 'app_user' table with the necessary columns
+CREATE TABLE IF NOT EXISTS app_user
 (
-    id BIGSERIAL PRIMARY KEY,
-    username VARCHAR(255) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    role VARCHAR(255) NOT NULL,
-    enabled BOOLEAN DEFAULT TRUE,
+    -- Unique identifier for the user (primary key)
+    id         BIGSERIAL PRIMARY KEY,
+
+    -- Username of the user (must be unique and not null)
+    username   VARCHAR(255) UNIQUE NOT NULL,
+
+    -- Password for the user (not null)
+    password   VARCHAR(255)        NOT NULL,
+
+    -- Email address (must be unique and not null)
+    email      VARCHAR(255) UNIQUE NOT NULL,
+
+    -- Role of the user, defined by the 'role_enum' type (not null)
+    role       role_enum           NOT NULL,
+
+    -- Account status (enabled or disabled), default is TRUE (enabled)
+    enabled    BOOLEAN   DEFAULT TRUE,
+
+    -- Timestamps for tracking when the account was created and last updated
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_role FOREIGN KEY(role) REFERENCES role_enum(role)
-    );
+    updated_at TIMESTAMP
+);
 
+-- Create an index on the 'username' column for faster lookups
+CREATE INDEX IF NOT EXISTS idx_user_username ON app_user (username);
 
--- Optional: Create an index on username for faster lookups (you can remove this if not needed)
-CREATE INDEX IF NOT EXISTS idx_user_username ON "user" (username);
+-- Create an index on the 'email' column for faster lookups
+CREATE INDEX IF NOT EXISTS idx_user_email ON app_user (email);
 
--- Optional: Create an index on email for faster lookups (you can remove this if not needed)
-CREATE INDEX IF NOT EXISTS idx_user_email ON "user" (email);
-
+-- ==========================================================
 -- Post Table
+-- ==========================================================
+-- The 'post' table stores posts created by users.
+-- Each post has a title, content, type (text, image, or video),
+-- metadata in JSON format, a reference to the user who created the post,
+-- and a privacy setting (public or private).
+
+-- Create the 'post' table
 CREATE TABLE IF NOT EXISTS post
 (
-    id BIGSERIAL PRIMARY KEY,              -- Auto-incrementing ID for the post (BIGSERIAL in PostgreSQL)
-    title VARCHAR(255) NOT NULL,                        -- Title of the post
-    content TEXT,                                       -- Content of the post
-    post_type VARCHAR(10) CHECK (post_type IN ('text', 'image', 'video')), -- Type of the post
-    metadata JSON DEFAULT '{}',                         -- Additional metadata (JSON format)
-    created_by BIGINT NOT NULL,                         -- Foreign Key to User
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,     -- Timestamp for post creation
-    privacy VARCHAR(10) DEFAULT 'public' CHECK (privacy IN ('public', 'private')), -- Privacy setting
-    FOREIGN KEY(created_by) REFERENCES "user"(id)      -- Foreign key reference to the user who created the post
-    );
+    -- Unique identifier for the post (primary key)
+    id         BIGSERIAL PRIMARY KEY,
 
+    -- Title of the post (required)
+    title      VARCHAR(255) NOT NULL,
+
+    -- Content of the post (optional, could be text, image, or video)
+    content    TEXT,
+
+    -- Type of post (text, image, or video)
+    post_type  VARCHAR(10) CHECK (post_type IN ('text', 'image', 'video')),
+
+    -- Metadata related to the post, stored as JSONB for better performance
+    metadata   JSONB       DEFAULT '{}'::jsonb,
+
+    -- ID of the user who created the post (foreign key reference to app_user)
+    created_by BIGINT       NOT NULL,
+
+    -- Timestamp for when the post was created
+    created_at TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
+
+    -- Privacy setting for the post (public or private)
+    privacy    VARCHAR(10) DEFAULT 'public' CHECK (privacy IN ('public', 'private')),
+
+    -- Foreign key constraint to link the post to the user who created it
+    FOREIGN KEY (created_by) REFERENCES app_user (id)
+);
+
+-- ==========================================================
 -- Comment Table
+-- ==========================================================
+-- The 'comment' table stores comments made by users on posts.
+-- Each comment is associated with a specific post and user.
+
+-- Create the 'comment' table
 CREATE TABLE IF NOT EXISTS comment
 (
-    id BIGSERIAL PRIMARY KEY,              -- Auto-incrementing ID for the comment (BIGSERIAL in PostgreSQL)
-    text TEXT NOT NULL,                                 -- Comment text
-    post_id BIGINT NOT NULL,                            -- Foreign Key to Post
-    user_id BIGINT NOT NULL,                            -- Foreign Key to User (commenter)
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,     -- Timestamp for comment creation
-    FOREIGN KEY(post_id) REFERENCES post(id),          -- Foreign Key reference to Post
-    FOREIGN KEY(user_id) REFERENCES "user"(id)         -- Foreign Key reference to User
-    );
+    -- Unique identifier for the comment (primary key)
+    id         BIGSERIAL PRIMARY KEY,
 
--- Like Table
-CREATE TABLE IF NOT EXISTS "like"
+    -- The actual content of the comment (required)
+    text       TEXT   NOT NULL,
+
+    -- ID of the post this comment belongs to (foreign key reference to post)
+    post_id    BIGINT NOT NULL,
+
+    -- ID of the user who made the comment (foreign key reference to app_user)
+    user_id    BIGINT NOT NULL,
+
+    -- Timestamp for when the comment was created
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    -- Foreign key constraint to link the comment to a post
+    FOREIGN KEY (post_id) REFERENCES post (id),
+
+    -- Foreign key constraint to link the comment to a user
+    FOREIGN KEY (user_id) REFERENCES app_user (id)
+);
+
+-- ==========================================================
+-- Like Table (post_like)
+-- ==========================================================
+-- The 'post_like' table stores records of users liking posts.
+-- A user can like a post only once, enforced by the unique constraint on user_id and post_id.
+
+-- Create the 'post_like' table (with the name quoted to avoid conflict with the reserved keyword 'LIKE')
+CREATE TABLE IF NOT EXISTS post_like
 (
-    id BIGSERIAL PRIMARY KEY,              -- Auto-incrementing ID for the like (BIGSERIAL in PostgreSQL)
-    user_id BIGINT NOT NULL,                            -- Foreign Key to User (who liked)
-    post_id BIGINT NOT NULL,                            -- Foreign Key to Post (liked)
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,     -- Timestamp for like creation
-    UNIQUE(user_id, post_id),                           -- Ensure that each user can only like a post once
-    FOREIGN KEY(user_id) REFERENCES "user"(id),        -- Foreign Key reference to User
-    FOREIGN KEY(post_id) REFERENCES post(id)           -- Foreign Key reference to Post
-    );
+    -- Unique identifier for the like (primary key)
+    id         BIGSERIAL PRIMARY KEY,
+
+    -- ID of the user who liked the post (foreign key reference to app_user)
+    user_id    BIGINT NOT NULL,
+
+    -- ID of the post that was liked (foreign key reference to post)
+    post_id    BIGINT NOT NULL,
+
+    -- Timestamp for when the like was created
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    -- Enforce that a user can like a post only once (unique constraint on user_id and post_id)
+    UNIQUE (user_id, post_id),
+
+    -- Foreign key constraint to link the like to a user
+    FOREIGN KEY (user_id) REFERENCES app_user (id),
+
+    -- Foreign key constraint to link the like to a post
+    FOREIGN KEY (post_id) REFERENCES post (id)
+);
