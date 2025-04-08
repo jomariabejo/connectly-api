@@ -29,16 +29,14 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/login", "/signup", "/api/auth/register", "/api/auth/login").permitAll()
+                        .requestMatchers("/login", "/signup", "/api/auth/register", "/api/auth/login", "/test/helloworld").permitAll()
                         .anyRequest().authenticated()
                 )
                 .formLogin(formLogin -> formLogin
                         .loginPage("/login")
                         .permitAll()
                 )
-
-                .logout(LogoutConfigurer::permitAll
-                );
+                .logout(LogoutConfigurer::permitAll);
 
         return http.build();
     }

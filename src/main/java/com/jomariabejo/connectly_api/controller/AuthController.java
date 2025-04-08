@@ -32,16 +32,16 @@ public class AuthController {
     }
 
     /**
-     * Endpoint to authenticate a user and return a JWT token.
+     * Endpoint to log in a user.
      *
-     * @param loginRequest the DTO containing the login credentials.
-     * @return ResponseEntity with AuthResponse containing JWT token if successful.
+     * @param loginRequest the DTO containing the user's login data.
+     * @return ResponseEntity with AuthResponse (including token if successful).
      */
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest loginRequest) {
-        AuthResponse response = userService.loginUser(loginRequest);
-        return response.isSuccess()
-                ? ResponseEntity.ok(response)
-                : ResponseEntity.status(401).body(response); // Unauthorized if login fails
+        AuthResponse response = userService.authenticateUser(loginRequest);
+        return ResponseEntity.status(response.isSuccess() ? 200 : 401).body(response);
     }
+
+
 }
