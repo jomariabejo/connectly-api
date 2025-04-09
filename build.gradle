@@ -37,17 +37,23 @@ dependencies {
 	implementation 'io.jsonwebtoken:jjwt-impl:0.11.0' // Impl module
 	implementation 'io.jsonwebtoken:jjwt-jackson:0.11.0' // Jackson module
 
-
+	implementation("org.mapstruct:mapstruct:1.6.3")
+	implementation("org.mapstruct:mapstruct-processor:1.6.3")
 
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	runtimeOnly 'org.postgresql:postgresql'
 	runtimeOnly 'org.projectlombok:lombok:1.18.36'
 
 	annotationProcessor 'org.projectlombok:lombok:1.18.36'
+	annotationProcessor 'org.mapstruct:mapstruct-processor:1.5.2.Final'
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+compileJava {
+	options.annotationProcessorPath = configurations.annotationProcessor
 }
 
 tasks.named('test') {

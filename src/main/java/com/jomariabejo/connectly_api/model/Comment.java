@@ -30,6 +30,4 @@ public class Comment {
     private User user;
 
     private LocalDateTime createdAt = LocalDateTime.now();
-
-    // Getters, setters, and toString() method
 }

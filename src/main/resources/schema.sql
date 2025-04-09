@@ -1,15 +1,30 @@
 -- ==========================================================
--- Role Enum Type Definition
+-- Role Table
 -- ==========================================================
--- This section defines an enum type 'role_enum' for user roles.
--- The roles defined are 'ADMIN' and 'USER', which will be used
--- for assigning user roles in the application.
+-- This section defines the 'role' table for user roles.
+-- The roles can be dynamically managed within this table.
 
--- Drop the role enum type if it already exists (to avoid errors during re-runs)
-DROP TYPE IF EXISTS role_enum;
+-- Drop the role table if it already exists (to avoid errors during re-runs)
+DROP TABLE IF EXISTS role;
 
--- Create the 'role_enum' type with 'ADMIN' and 'USER' as valid values
-CREATE TYPE role_enum AS ENUM ('ADMIN', 'USER');
+-- Create the 'role' table with the necessary columns
+CREATE TABLE IF NOT EXISTS role
+(
+    -- Unique identifier for the role (primary key)
+    id          BIGSERIAL PRIMARY KEY,
+
+    -- Name of the role (must be unique and not null)
+    name        VARCHAR(50) UNIQUE NOT NULL,
+
+    -- Description of the role (optional)
+    description TEXT
+);
+
+-- Insert default roles (ADMIN and USER) into the 'role' table
+INSERT INTO role (name, description)
+VALUES
+    ('ADMIN', 'Administrator with full access to all features'),
+    ('USER', 'Regular user with restricted access');
 
 -- ==========================================================
 -- User Table (app_user)
@@ -25,26 +40,23 @@ DROP TABLE IF EXISTS app_user;
 CREATE TABLE IF NOT EXISTS app_user
 (
     -- Unique identifier for the user (primary key)
-    id         BIGSERIAL PRIMARY KEY,
+    id          BIGSERIAL PRIMARY KEY,
 
     -- Username of the user (must be unique and not null)
-    username   VARCHAR(255) UNIQUE NOT NULL,
+    username    VARCHAR(255) UNIQUE NOT NULL,
 
     -- Password for the user (not null)
-    password   VARCHAR(255)        NOT NULL,
+    password    VARCHAR(255) NOT NULL,
 
     -- Email address (must be unique and not null)
-    email      VARCHAR(255) UNIQUE NOT NULL,
-
-    -- Role of the user, defined by the 'role_enum' type (not null)
-    role       role_enum           NOT NULL,
+    email       VARCHAR(255) UNIQUE NOT NULL,
 
     -- Account status (enabled or disabled), default is TRUE (enabled)
-    enabled    BOOLEAN   DEFAULT TRUE,
+    enabled     BOOLEAN   DEFAULT TRUE,
 
     -- Timestamps for tracking when the account was created and last updated
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP
 );
 
 -- Create an index on the 'username' column for faster lookups
@@ -54,6 +66,30 @@ CREATE INDEX IF NOT EXISTS idx_user_username ON app_user (username);
 CREATE INDEX IF NOT EXISTS idx_user_email ON app_user (email);
 
 -- ==========================================================
+-- User-Role Join Table (user_roles)
+-- ==========================================================
+-- This table will store the many-to-many relationship between users and roles.
+-- A user can have multiple roles, and a role can be assigned to multiple users.
+
+CREATE TABLE IF NOT EXISTS user_roles
+(
+    -- User ID (foreign key reference to the 'app_user' table)
+    user_id  BIGINT NOT NULL,
+
+    -- Role ID (foreign key reference to the 'role' table)
+    role_id  BIGINT NOT NULL,
+
+    -- Primary key consisting of both user_id and role_id
+    PRIMARY KEY (user_id, role_id),
+
+    -- Foreign key constraint to link to the 'app_user' table
+    FOREIGN KEY (user_id) REFERENCES app_user (id) ON DELETE CASCADE,
+
+    -- Foreign key constraint to link to the 'role' table
+    FOREIGN KEY (role_id) REFERENCES role (id) ON DELETE CASCADE
+);
+
+-- ==========================================================
 -- Post Table
 -- ==========================================================
 -- The 'post' table stores posts created by users.
@@ -61,7 +97,6 @@ CREATE INDEX IF NOT EXISTS idx_user_email ON app_user (email);
 -- metadata in JSON format, a reference to the user who created the post,
 -- and a privacy setting (public or private).
 
--- Create the 'post' table
 CREATE TABLE IF NOT EXISTS post
 (
     -- Unique identifier for the post (primary key)
@@ -98,7 +133,6 @@ CREATE TABLE IF NOT EXISTS post
 -- The 'comment' table stores comments made by users on posts.
 -- Each comment is associated with a specific post and user.
 
--- Create the 'comment' table
 CREATE TABLE IF NOT EXISTS comment
 (
     -- Unique identifier for the comment (primary key)
@@ -129,7 +163,6 @@ CREATE TABLE IF NOT EXISTS comment
 -- The 'post_like' table stores records of users liking posts.
 -- A user can like a post only once, enforced by the unique constraint on user_id and post_id.
 
--- Create the 'post_like' table (with the name quoted to avoid conflict with the reserved keyword 'LIKE')
 CREATE TABLE IF NOT EXISTS post_like
 (
     -- Unique identifier for the like (primary key)

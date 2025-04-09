@@ -11,10 +11,4 @@ public class ConnectlyApiApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(ConnectlyApiApplication.class, args);
 	}
-
-	@Bean
-	public BCryptPasswordEncoder bCryptPasswordEncoder() {
-		return new BCryptPasswordEncoder();
-	}
-
 }

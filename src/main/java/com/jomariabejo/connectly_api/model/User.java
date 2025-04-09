@@ -1,20 +1,21 @@
 package com.jomariabejo.connectly_api.model;
 
 import jakarta.persistence.*;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
-import java.time.LocalDateTime;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 
 @Entity
 @Getter
 @Setter
 @Table(name = "app_user")
+@EqualsAndHashCode(of = "id")
 public class User implements UserDetails {
 
     @Id
@@ -30,51 +31,40 @@ public class User implements UserDetails {
     @Column(unique = true, nullable = false)
     private String email;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Role role = Role.USER;  // Default value
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(name = "user_roles",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id"))
+    private Set<Role> roles = new HashSet<>();
 
+    @CreationTimestamp
+    @Column(updatable = false, name = "created_at")
+    private Date createdAt;
 
-    private LocalDateTime createdAt;
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private Date updatedAt;
 
-    private LocalDateTime updatedAt;
+    public User() {}
 
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    // Default constructor
-    public User() {
-    }
-
-    // Constructor with essential fields
-    public User(String username, String password, String email, Role role) {
+    public User(String username, String password, String email) {
         this.username = username;
         this.password = password;
         this.email = email;
-        this.role = role;
-    }
-
-    @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
-    }
-
-    @Override
-    public String getPassword() {
-        return password; // Return the actual password value
     }
 
     @Override
     public String getUsername() {
-        return username; // Return the actual username value
+        return email;  // Email is used as the username
+    }
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        Set<GrantedAuthority> authorities = new HashSet<>();
+        for (Role role : roles) {
+            authorities.add(() -> "ROLE_" + role.getName());
+        }
+        return authorities;
     }
 
     @Override
