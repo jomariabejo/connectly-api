@@ -3,6 +3,7 @@ package com.jomariabejo.connectly_api.service;
 import com.jomariabejo.connectly_api.dto.post.CreatePostDto;
 import com.jomariabejo.connectly_api.dto.post.PostResponseDto;
 import com.jomariabejo.connectly_api.dto.post.UpdatePostDto;
+import com.jomariabejo.connectly_api.exception.UnauthorizedAccessException;
 import com.jomariabejo.connectly_api.mapper.PostMapper;
 import com.jomariabejo.connectly_api.model.Post;
 import com.jomariabejo.connectly_api.model.User;
@@ -25,7 +26,7 @@ public class PostService {
         this.postRepository = postRepository;
         this.postMapper = postMapper;
     }
-
+//    https://www.reddit.com/r/SpringBoot/comments/efwu26/when_to_use_transactional_in_springboot_and_when/
     @Transactional
     public CreatePostDto createPost(CreatePostDto createPostDto, User authenticatedUser) {
         // Map the DTO to a Post entity
@@ -39,12 +40,8 @@ public class PostService {
         // Associate the post with the authenticated user
         post.setCreatedBy(authenticatedUser);
 
-        // Debug the post object before saving
-        System.out.println("Post before save: " + post);
-
         // Save the post and debug the saved post
         Post savedPost = postRepository.save(post);
-        System.out.println("Post saved: " + savedPost);
 
         // Return the post response as a DTO
         return postMapper.postToCreatePostDto(savedPost);
@@ -54,10 +51,6 @@ public class PostService {
     public PostResponseDto getPost(Long id, User authenticatedUser) {
         // Fetch the post from the repository using findById
         Optional<Post> optionalPost = postRepository.findById(id);
-        System.out.println("Post id is " + optionalPost.get().getId());
-
-        // Log the result to help debugging
-        System.out.println("Fetching post with ID: " + id);
 
         if (optionalPost.isEmpty()) {
             throw new RuntimeException("Post with ID " + id + " not found");
@@ -65,23 +58,11 @@ public class PostService {
 
         Post post = optionalPost.get();  // Safely retrieve the post
 
-        System.out.println("Authenticated user is " + authenticatedUser);
-        System.out.println("Post Author        is " + post.getCreatedBy());
 
         // Check if the authenticated user is the creator of the post
         if (authenticatedUser.equals(post.getCreatedBy())) {
-            System.out.println("Inside out");  // Log when the user is authorized
-            System.out.println("Id is " + post.getId());
-            System.out.println("Post Author is " + post.getCreatedBy());
-            System.out.println("Post Title is " + post.getTitle());
-            System.out.println("Post Content is " + post.getContent());
-            System.out.println("Post Author is " + post.getCreatedBy());
-            System.out.println("Post Title is " + post.getTitle());
-            System.out.println("Post Content is " + post.getContent());
-
             return new PostResponseDto(post);
         } else {
-            System.out.println("Inside in");  // Log when the user is not authorized
             throw new RuntimeException("User " + authenticatedUser.getUsername() + " is not authorized to view this post");
         }
     }
@@ -95,23 +76,27 @@ public class PostService {
                 .collect(Collectors.toList());           // Collect into a list
     }
 
-    public PostResponseDto updatePost(Long id, UpdatePostDto updatePostDto) {
+    public PostResponseDto updatePost(Long id, UpdatePostDto updatePostDto, User authenticatedUser) {
         // Find the existing post
         Post existingPost = postRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Post not found"));
 
-        // Update the fields with the new values
-        existingPost.setTitle(updatePostDto.getTitle());
-        existingPost.setContent(updatePostDto.getContent());
-        existingPost.setMetadata(updatePostDto.getMetadata());
-        existingPost.setPostType(updatePostDto.getPostType());
-        existingPost.setPrivacy(updatePostDto.getPrivacy());
+        if (authenticatedUser.equals(existingPost.getCreatedBy())) {
 
-        // Save the updated post back to the repository
-        Post updatedPost = postRepository.save(existingPost);
+            // Update the fields with the new values
+            existingPost.setTitle(updatePostDto.getTitle());
+            existingPost.setContent(updatePostDto.getContent());
+            existingPost.setMetadata(updatePostDto.getMetadata());
+            existingPost.setPostType(updatePostDto.getPostType());
+            existingPost.setPrivacy(updatePostDto.getPrivacy());
 
-        // Convert the updated post to a PostResponseDto and return it
-        return new PostResponseDto(updatedPost);
+            // Save the updated post back to the repository
+            Post updatedPost = postRepository.save(existingPost);
+            return new PostResponseDto(updatedPost);
+        }
+        else {
+            throw new UnauthorizedAccessException("User " + authenticatedUser.getUsername() + " is not authorized to view this post");
+        }
     }
 
     public boolean deletePost(Long id, User authenticatedUser) {

@@ -3,17 +3,14 @@ package com.jomariabejo.connectly_api.controller;
 import com.jomariabejo.connectly_api.dto.post.CreatePostDto;
 import com.jomariabejo.connectly_api.dto.post.PostResponseDto;
 import com.jomariabejo.connectly_api.dto.post.UpdatePostDto;
+import com.jomariabejo.connectly_api.service.AuthenticationService;
 import com.jomariabejo.connectly_api.service.PostService;
 import com.jomariabejo.connectly_api.model.User;
-import org.hibernate.sql.Update;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
-
 import java.util.List;
 
 @RestController
@@ -21,73 +18,63 @@ import java.util.List;
 public class PostController {
 
     private final PostService postService;
+    private final AuthenticationService authenticationService;
 
-    public PostController(PostService postService) {
+    public PostController(PostService postService, AuthenticationService authenticationService) {
         this.postService = postService;
+        this.authenticationService = authenticationService;
     }
 
     @PostMapping
     public ResponseEntity<CreatePostDto> createPost(
             @RequestBody @Valid CreatePostDto createPostDto) {
 
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        User authenticatedUser = (User) authentication.getPrincipal();
+        User currentUser = authenticationService.getAuthenticatedUser();
 
-        CreatePostDto createPost = postService.createPost(createPostDto, authenticatedUser);
+        CreatePostDto createPost = postService.createPost(createPostDto, currentUser);
 
         return ResponseEntity.status(201).body(createPost);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<PostResponseDto> getPost(@PathVariable Long id) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        User authenticatedUser = (User) authentication.getPrincipal();
+        User currentUser = authenticationService.getAuthenticatedUser();
 
         PostResponseDto postResponseDto;
         try {
-            System.out.println("Inside try start");
-            postResponseDto = postService.getPost(id, authenticatedUser);
-            System.out.println("Inside try end");
+            postResponseDto = postService.getPost(id, currentUser);
         } catch (RuntimeException e) {
-            System.out.println(e.getMessage());
-            System.out.println("Inside catch start");
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
         }
-
         return ResponseEntity.ok(postResponseDto);
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<PostResponseDto> updatePost(@PathVariable Long id, @RequestBody UpdatePostDto updatePostDto) {
-        PostResponseDto updatedPost = postService.updatePost(id, updatePostDto);
+        User currentUser = authenticationService.getAuthenticatedUser();
+
+        PostResponseDto updatedPost = postService.updatePost(id, updatePostDto, currentUser);
 
         return ResponseEntity.ok(updatedPost);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletePost(@PathVariable Long id) {
-        // Get the currently authenticated user
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        User authenticatedUser = (User) authentication.getPrincipal();
+        User currentUser = authenticationService.getAuthenticatedUser();
 
-        // Call the service to delete the post and check if the user is allowed to do so
-        boolean isDeleted = postService.deletePost(id, authenticatedUser);
+        boolean isDeleted = postService.deletePost(id, currentUser);
 
-        if (isDeleted) {
-            // Return HTTP status 204 (No Content) if the deletion was successful
+        if (isDeleted)
             return ResponseEntity.noContent().build();
-        } else {
-            // Return HTTP status 403 (Forbidden) if the user does not have permission
+        else
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
     }
 
     @GetMapping("/my-posts")
     public ResponseEntity<List<PostResponseDto>> getPostsByAuthenticatedUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        User authenticatedUser = (User) authentication.getPrincipal();
+        User currentUser = authenticationService.getAuthenticatedUser();
 
-        List<PostResponseDto> posts = postService.getPostsByUser(authenticatedUser.getId());
-        return ResponseEntity.ok(posts); // Return 200 OK
+        List<PostResponseDto> posts = postService.getPostsByUser(currentUser.getId());
+        return ResponseEntity.ok(posts);
     }
 }

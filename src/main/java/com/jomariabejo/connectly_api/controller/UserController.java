@@ -1,6 +1,7 @@
 package com.jomariabejo.connectly_api.controller;
 
 import com.jomariabejo.connectly_api.model.User;
+import com.jomariabejo.connectly_api.service.AuthenticationService;
 import com.jomariabejo.connectly_api.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -16,17 +17,16 @@ import java.util.List;
 @RestController
 public class UserController {
     private final UserService userService;
+    private final AuthenticationService authenticationService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, AuthenticationService authenticationService) {
         this.userService = userService;
+        this.authenticationService = authenticationService;
     }
 
     @GetMapping("/me")
     public ResponseEntity<User> authenticatedUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        User currentUser = (User) authentication.getPrincipal();
-
+        User currentUser = authenticationService.getAuthenticatedUser();
         return ResponseEntity.ok(currentUser);
     }
 
