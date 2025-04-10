@@ -36,3 +36,4 @@ public class Post {
 
     private String privacy;
 }
+

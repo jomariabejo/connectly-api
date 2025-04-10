@@ -8,7 +8,6 @@ import com.jomariabejo.connectly_api.mapper.PostMapper;
 import com.jomariabejo.connectly_api.model.Post;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.repository.PostRepository;
-import com.jomariabejo.connectly_api.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,12 +60,11 @@ public class PostService {
 
         // Check if the authenticated user is the creator of the post
         if (authenticatedUser.equals(post.getCreatedBy())) {
-            return new PostResponseDto(post);
+            return postMapper.postToPostResponseDto(post);
         } else {
             throw new RuntimeException("User " + authenticatedUser.getUsername() + " is not authorized to view this post");
         }
     }
-
 
     public List<PostResponseDto> getPostsByUser(Long userId) {
         List<Post> postList = postRepository.findByCreatedById(userId);

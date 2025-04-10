@@ -38,5 +38,19 @@ public class PostResponseDto {
         this.createdAt = post.getCreatedAt();
         this.createdBy = post.getCreatedBy();
     }
+
+    @Override
+    public String toString() {
+        return "PostResponseDto{" +
+                "id=" + id +
+                ", title='" + title + '\'' +
+                ", content='" + content + '\'' +
+                ", postType='" + postType + '\'' +
+                ", metadata='" + metadata + '\'' +
+                ", privacy='" + privacy + '\'' +
+                ", createdAt=" + createdAt +
+                ", createdBy=" + createdBy +
+                '}';
+    }
 }
 
