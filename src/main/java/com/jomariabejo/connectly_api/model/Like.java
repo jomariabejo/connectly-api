@@ -25,4 +25,10 @@ public class Like {
 
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    public Like() {} // default constructor
+
+    public Like(User user, Post post) {
+        this.user = user;
+        this.post = post;
+    }
 }
