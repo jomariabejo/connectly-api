@@ -50,6 +50,9 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	compileOnly 'io.github.cdimascio:dotenv-java:3.2.0'
+	implementation("org.springframework.boot:spring-boot-starter-mail:3.4.4")
 }
 
 compileJava {

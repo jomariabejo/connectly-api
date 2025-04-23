@@ -114,26 +114,55 @@ package com.jomariabejo.connectly_api.service;//package com.jomariabejo.connectl
 //}
 
 
+import ch.qos.logback.core.model.Model;
 import com.jomariabejo.connectly_api.model.User;
+import com.jomariabejo.connectly_api.model.VerificationToken;
 import com.jomariabejo.connectly_api.repository.UserRepository;
+import com.jomariabejo.connectly_api.repository.VerificationTokenRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.context.request.WebRequest;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.sql.Timestamp;
+import java.util.*;
+
 
 @Service
 public class UserService {
     private final UserRepository userRepository;
+    private final VerificationTokenRepository tokenRepository;
+    private final UserDetailsService userDetailsService;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository,
+                       VerificationTokenRepository tokenRepository,
+                       @Qualifier("userDetailsService") UserDetailsService userDetailsService) {
         this.userRepository = userRepository;
+        this.tokenRepository = tokenRepository;
+        this.userDetailsService = userDetailsService;
     }
-
 
     public List<User> allUsers() {
         return new ArrayList<>(userRepository.findAll());
     }
+
+    public void confirmRegistration(User user, String token) {
+        VerificationToken verificationToken = new VerificationToken();
+        verificationToken.setToken(token);
+        verificationToken.setUser(user);
+        verificationToken.setExpiryDate(calculateExpiryDate(60 * 24)); // 24 hours
+        tokenRepository.save(verificationToken);
+    }
+
+    private Date calculateExpiryDate(int expiryTimeInMinutes) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(new Timestamp(cal.getTime().getTime()));
+        cal.add(Calendar.MINUTE, expiryTimeInMinutes);
+        return new Date(cal.getTime().getTime());
+    }
 }
-
-

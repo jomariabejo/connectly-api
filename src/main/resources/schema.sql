@@ -54,6 +54,11 @@ CREATE TABLE IF NOT EXISTS app_user
     -- Account status (enabled or disabled), default is TRUE (enabled)
     enabled     BOOLEAN   DEFAULT TRUE,
 
+    -- Token for new user registration
+    verificationToken       VARCHAR(255) UNIQUE NOT NULL,
+
+    --
+
     -- Timestamps for tracking when the account was created and last updated
     created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at  TIMESTAMP
@@ -185,4 +190,27 @@ CREATE TABLE IF NOT EXISTS post_like
 
     -- Foreign key constraint to link the like to a post
     FOREIGN KEY (post_id) REFERENCES post (id)
+);
+
+
+-- ==========================================================
+-- Verification Token Table
+-- ==========================================================
+-- This table stores verification tokens for user registration or email confirmation.
+
+CREATE TABLE IF NOT EXISTS verification_token (
+    -- Unique identifier for the token (primary key)
+      id           BIGSERIAL PRIMARY KEY,
+
+    -- Token string (unique, not null)
+      token        VARCHAR(255) UNIQUE NOT NULL,
+
+    -- Reference to the user (foreign key)
+      user_id      BIGINT NOT NULL UNIQUE,
+
+    -- Expiration date and time
+      expiry_date  TIMESTAMP NOT NULL,
+
+    -- Foreign key constraint linking the token to a user
+    FOREIGN KEY (user_id) REFERENCES app_user (id) ON DELETE CASCADE
 );

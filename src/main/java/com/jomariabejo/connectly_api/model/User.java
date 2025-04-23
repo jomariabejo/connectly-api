@@ -9,6 +9,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.sql.Timestamp;
 import java.util.*;
 
 @Entity
@@ -45,12 +46,20 @@ public class User implements UserDetails {
     @Column(name = "updated_at")
     private Date updatedAt;
 
+    @Column(name = "enabled")
+    private boolean enabled = false;
+
+    private String verificationToken;
+
+    private Date expiryDate;
+
     public User() {}
 
     public User(String username, String password, String email) {
         this.username = username;
         this.password = password;
         this.email = email;
+        this.enabled = false;
     }
 
     @Override
@@ -84,6 +93,13 @@ public class User implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return false;
+    }
+
+    private Date calculateExpiryDate(int expiryTimeInMinutes) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(new Timestamp(cal.getTime().getTime()));
+        cal.add(Calendar.MINUTE, expiryTimeInMinutes);
+        return new Date(cal.getTime().getTime());
     }
 }
