@@ -13,17 +13,23 @@ import java.util.Optional;
 
 @Repository
 public interface CommentRepository extends JpaRepository<Comment, Long> {
+    
     Comment save(Comment comment);
-    Optional<Comment> findById(Long id);
+    
+    @Query("SELECT c FROM Comment c WHERE c.id = :id AND c.user.deletedAt IS NULL")
+    Optional<Comment> findById(@Param("id") Long id);
+    
     void deleteById(Long id);
 
-    List<Comment> findByPostId(Long postId);
+    @Query("SELECT c FROM Comment c WHERE c.post.id = :postId AND c.user.deletedAt IS NULL")
+    List<Comment> findByPostId(@Param("postId") Long postId);
 
-    // Pagination methods
-    Page<Comment> findByPostId(Long postId, Pageable pageable);
+    // Pagination methods with deleted user filtering
+    @Query("SELECT c FROM Comment c WHERE c.post.id = :postId AND c.user.deletedAt IS NULL")
+    Page<Comment> findByPostId(@Param("postId") Long postId, Pageable pageable);
 
-    // Filtering methods
-    @Query("SELECT c FROM Comment c WHERE c.post.id = :postId AND " +
+    // Filtering methods with deleted user filtering
+    @Query("SELECT c FROM Comment c WHERE c.post.id = :postId AND c.user.deletedAt IS NULL AND " +
             "(:content IS NULL OR c.text LIKE %:content%) AND " +
             "(:createdById IS NULL OR c.user.id = :createdById)")
     Page<Comment> findPostCommentsWithFilters(

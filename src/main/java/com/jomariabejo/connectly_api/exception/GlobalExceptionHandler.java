@@ -43,6 +43,16 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Unauthorized access", ex);
     }
 
+    @ExceptionHandler(AccountDeletionScheduledException.class)
+    public ResponseEntity<ErrorResponse> handleAccountDeletionScheduledException(AccountDeletionScheduledException ex) {
+        return buildErrorResponse(HttpStatus.GONE, "Account scheduled for deletion", ex);
+    }
+
+    @ExceptionHandler(AccountReactivationFailedException.class)
+    public ResponseEntity<ErrorResponse> handleAccountReactivationFailedException(AccountReactivationFailedException ex) {
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "Account reactivation failed", ex);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
         logger.error("Unhandled exception occurred", ex);
