@@ -28,7 +28,7 @@ public class DeleteAccountResponseDto {
     
     private int gracePeriodDays;
     
-    private boolean autoReactivationEnabled;
+    private Boolean autoReactivationEnabled = false;
     
     private String reactivationInstructions;
 }

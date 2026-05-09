@@ -132,8 +132,9 @@ public class UserController {
     public ResponseEntity<String> reactivateAccount(
             @RequestBody ReactivateAccountRequestDto requestDto) {
         
-        Optional<VerificationToken> tokenOpt = verificationTokenRepository.findByToken(requestDto.getReactivationToken());
-        
+        Optional<VerificationToken> tokenOpt =
+        verificationTokenRepository.findByToken(requestDto.getReactivationToken());
+
         if (tokenOpt.isEmpty()) {
             throw new AccountReactivationFailedException("Invalid or expired reactivation token");
         }

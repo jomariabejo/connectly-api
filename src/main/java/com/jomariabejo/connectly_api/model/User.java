@@ -71,7 +71,7 @@ public class User implements UserDetails {
     private Date scheduledDeletionAt;
 
     @Column(name = "auto_reactivation_enabled")
-    private boolean autoReactivationEnabled = true;
+    private Boolean autoReactivationEnabled = true;
 
     public User() {}
 
@@ -121,5 +121,13 @@ public class User implements UserDetails {
         cal.setTime(new Timestamp(cal.getTime().getTime()));
         cal.add(Calendar.MINUTE, expiryTimeInMinutes);
         return new Date(cal.getTime().getTime());
+    }
+
+    public boolean isAutoReactivationEnabled() {
+        return autoReactivationEnabled;
+    }
+
+    public void setAutoReactivationEnabled(boolean autoReactivationEnabled) {
+        this.autoReactivationEnabled = autoReactivationEnabled;
     }
 }

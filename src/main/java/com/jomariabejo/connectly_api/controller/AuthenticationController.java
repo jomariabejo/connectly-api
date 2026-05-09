@@ -25,8 +25,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.lang.StackWalker.Option;
 import java.util.Calendar;
 import java.util.Locale;
+import java.util.Optional;
 
 @RequestMapping("/auth")
 @RestController
@@ -88,21 +90,18 @@ public class AuthenticationController {
 
     @GetMapping("/registrationConfirm")
     public ResponseEntity<?> confirmRegistration(@RequestParam("token") String token) {
-        VerificationToken verificationToken = tokenRepository.findByToken(token);
-        if (verificationToken == null) {
-            return ResponseEntity.badRequest().body("Invalid token");
+
+        Optional<VerificationToken> verificationTokenOptional = tokenRepository.findByToken(token);
+        if (!verificationTokenOptional.isPresent()) {
+            return ResponseEntity.badRequest().body("Invalid verification token");
         }
 
+        VerificationToken verificationToken = verificationTokenOptional.get();
+        
         User user = verificationToken.getUser();
-        Calendar cal = Calendar.getInstance();
-        if ((verificationToken.getExpiryDate().getTime() - cal.getTime().getTime()) <= 0) {
-            return ResponseEntity.badRequest().body("Expired token");
-        }
-
         user.setEnabled(true);
         userRepository.save(user);
 
-        // Delete the token after successful verification
         tokenRepository.delete(verificationToken);
 
         return ResponseEntity.ok("Your account has been successfully activated. You can now login.");

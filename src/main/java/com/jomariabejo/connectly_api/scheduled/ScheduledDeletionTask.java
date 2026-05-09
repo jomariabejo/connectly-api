@@ -34,7 +34,7 @@ public class ScheduledDeletionTask {
      * - *: every month
      * - *: every day of week
      */
-    @Scheduled(cron = "0 2 * * *")
+    @Scheduled(cron = "0 0 2 * * *")
     public void permanentlyDeleteScheduledUsers() {
         logger.info("Starting scheduled deletion task...");
         

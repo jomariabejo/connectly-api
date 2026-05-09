@@ -212,7 +212,7 @@ public class UserService {
 
         user.setDeletedAt(deletedAt);
         user.setScheduledDeletionAt(scheduledDeletionAt);
-        user.setIsActive(false);
+        user.setActive(false);
 
         return userRepository.save(user);
     }
@@ -227,7 +227,7 @@ public class UserService {
     public User reactivateUser(User user) {
         user.setDeletedAt(null);
         user.setScheduledDeletionAt(null);
-        user.setIsActive(true);
+        user.setActive(true);
 
         return userRepository.save(user);
     }
