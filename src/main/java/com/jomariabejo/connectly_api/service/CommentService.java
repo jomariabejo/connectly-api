@@ -3,6 +3,8 @@ package com.jomariabejo.connectly_api.service;
 import com.jomariabejo.connectly_api.dto.comment.CommentResponseDto;
 import com.jomariabejo.connectly_api.dto.comment.CreateCommentDto;
 import com.jomariabejo.connectly_api.dto.comment.UpdateCommentDto;
+import com.jomariabejo.connectly_api.dto.CommentFilterDto;
+import com.jomariabejo.connectly_api.dto.PaginationDto;
 import com.jomariabejo.connectly_api.exception.CommentNotFoundException;
 import com.jomariabejo.connectly_api.exception.PostNotFoundException;
 import com.jomariabejo.connectly_api.exception.UnauthorizedAccessException;
@@ -13,6 +15,8 @@ import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.repository.CommentRepository;
 import com.jomariabejo.connectly_api.repository.PostRepository;
 import jakarta.transaction.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -98,5 +102,36 @@ public class CommentService {
                 .orElseThrow(() -> new CommentNotFoundException("Comment not found with id: " + commentId));
 
         return comment.getUser().equals(authenticatedUser);
+    }
+
+    // Pagination methods
+    public PaginationDto<CommentResponseDto> getPostCommentsPaginated(Long postId, Pageable pageable) {
+        Page<Comment> commentsPage = commentRepository.findByPostId(postId, pageable);
+        return mapPageToDto(commentsPage);
+    }
+
+    public PaginationDto<CommentResponseDto> getPostCommentsWithFilters(Long postId, CommentFilterDto filterDto, Pageable pageable) {
+        Page<Comment> commentsPage = commentRepository.findPostCommentsWithFilters(
+                postId,
+                filterDto.getContent(),
+                filterDto.getCreatedById(),
+                pageable
+        );
+        return mapPageToDto(commentsPage);
+    }
+
+    private PaginationDto<CommentResponseDto> mapPageToDto(Page<Comment> page) {
+        List<CommentResponseDto> content = page.getContent()
+                .stream()
+                .map(commentMapper::commentToCommentResponseDto)
+                .collect(Collectors.toList());
+
+        return new PaginationDto<>(
+                content,
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages()
+        );
     }
 }
