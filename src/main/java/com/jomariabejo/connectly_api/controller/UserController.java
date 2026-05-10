@@ -4,10 +4,12 @@ import com.jomariabejo.connectly_api.dto.*;
 import com.jomariabejo.connectly_api.exception.AccountDeletionScheduledException;
 import com.jomariabejo.connectly_api.exception.AccountReactivationFailedException;
 import com.jomariabejo.connectly_api.model.User;
+import com.jomariabejo.connectly_api.model.UserSettings;
 import com.jomariabejo.connectly_api.model.VerificationToken;
 import com.jomariabejo.connectly_api.repository.VerificationTokenRepository;
 import com.jomariabejo.connectly_api.service.AuthenticationService;
 import com.jomariabejo.connectly_api.service.UserService;
+import com.jomariabejo.connectly_api.service.UserSettingsService;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -30,13 +32,16 @@ public class UserController {
     private final UserService userService;
     private final AuthenticationService authenticationService;
     private final VerificationTokenRepository verificationTokenRepository;
+    private final UserSettingsService userSettingsService;
 
     public UserController(UserService userService, 
                          AuthenticationService authenticationService,
-                         VerificationTokenRepository verificationTokenRepository) {
+                         VerificationTokenRepository verificationTokenRepository,
+                         UserSettingsService userSettingsService) {
         this.userService = userService;
         this.authenticationService = authenticationService;
         this.verificationTokenRepository = verificationTokenRepository;
+        this.userSettingsService = userSettingsService;
     }
 
     @GetMapping("/me")
@@ -232,5 +237,53 @@ public class UserController {
     public ResponseEntity<List<User>> getUsersScheduledForDeletion() {
         List<User> scheduledUsers = userService.getUsersScheduledForDeletion();
         return ResponseEntity.ok(scheduledUsers);
+    }
+
+    /**
+     * Update account privacy setting (make account private or public)
+     * PUT /users/settings/account-privacy
+     */
+    @PutMapping("/settings/account-privacy")
+    public ResponseEntity<UserSettings> updateAccountPrivacy(
+            @RequestBody UpdateAccountPrivacyDto requestDto) {
+        User authenticatedUser = authenticationService.getAuthenticatedUser();
+        userSettingsService.updateAccountPrivacy(authenticatedUser, requestDto.isPrivate());
+        UserSettings settings = userSettingsService.getOrCreateSettings(authenticatedUser);
+        return ResponseEntity.ok(settings);
+    }
+
+    /**
+     * Update auto-approve followers setting
+     * PUT /users/settings/auto-approve
+     */
+    @PutMapping("/settings/auto-approve")
+    public ResponseEntity<UserSettings> updateAutoApproveFollowers(
+            @RequestBody UpdateAutoApproveDto requestDto) {
+        User authenticatedUser = authenticationService.getAuthenticatedUser();
+        UserSettings settings = userSettingsService.updateAutoApproveFollowers(authenticatedUser, requestDto.isAutoApprove());
+        return ResponseEntity.ok(settings);
+    }
+
+    /**
+     * Update allow-following setting
+     * PUT /users/settings/allow-following
+     */
+    @PutMapping("/settings/allow-following")
+    public ResponseEntity<UserSettings> updateAllowFollowing(
+            @RequestBody UpdateAllowFollowingDto requestDto) {
+        User authenticatedUser = authenticationService.getAuthenticatedUser();
+        UserSettings settings = userSettingsService.updateAllowFollowing(authenticatedUser, requestDto.isAllowFollowing());
+        return ResponseEntity.ok(settings);
+    }
+
+    /**
+     * Get user settings
+     * GET /users/settings
+     */
+    @GetMapping("/settings")
+    public ResponseEntity<UserSettings> getUserSettings() {
+        User authenticatedUser = authenticationService.getAuthenticatedUser();
+        UserSettings settings = userSettingsService.getOrCreateSettings(authenticatedUser);
+        return ResponseEntity.ok(settings);
     }
 }

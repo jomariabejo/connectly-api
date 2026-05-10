@@ -73,6 +73,18 @@ public class User implements UserDetails {
     @Column(name = "auto_reactivation_enabled")
     private Boolean autoReactivationEnabled = true;
 
+    @Column(name = "account_private", nullable = false)
+    private Boolean accountPrivate = false;
+
+    @OneToMany(mappedBy = "follower", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<Follow> following = new HashSet<>();
+
+    @OneToMany(mappedBy = "following", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<Follow> followers = new HashSet<>();
+
+    @OneToOne(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private UserSettings settings;
+
     public User() {}
 
     public User(String username, String password, String email) {

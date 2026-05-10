@@ -34,6 +34,8 @@ public class Post {
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    private String privacy;
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private PrivacyLevel privacy = PrivacyLevel.PUBLIC;
 }
 

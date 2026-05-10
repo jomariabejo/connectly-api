@@ -149,6 +149,16 @@ public class PostController {
         return ResponseEntity.ok(result);
     }
 
+    @GetMapping("/feed")
+    public ResponseEntity<PaginationDto<PostResponseDto>> getHomeFeed(
+            @PageableDefault(size = 10, page = 0, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+
+        User currentUser = authenticationService.getAuthenticatedUser();
+        PaginationDto<PostResponseDto> feed = postService.getHomeFeed(currentUser.getId(), pageable);
+
+        return ResponseEntity.ok(feed);
+    }
+
     private boolean hasFilters(PostFilterDto filterDto) {
         return filterDto.getTitle() != null || filterDto.getContent() != null ||
                filterDto.getPostType() != null || filterDto.getPrivacy() != null ||
