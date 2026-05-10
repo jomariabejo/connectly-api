@@ -57,11 +57,21 @@ CREATE TABLE IF NOT EXISTS app_user
     -- Token for new user registration
     verificationToken       VARCHAR(255) UNIQUE NOT NULL,
 
-    --
-
     -- Timestamps for tracking when the account was created and last updated
     created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at  TIMESTAMP
+    updated_at  TIMESTAMP,
+
+    -- Soft-delete timestamp (null = active, non-null = deletion timestamp)
+    deleted_at  TIMESTAMP,
+
+    -- Account active status (redundant but query-friendly). Used in conjunction with deleted_at
+    is_active   BOOLEAN DEFAULT TRUE,
+
+    -- Scheduled deletion timestamp (30 days after deleted_at)
+    scheduled_deletion_at TIMESTAMP,
+
+    -- Auto-reactivation enabled flag (allows automatic reactivation on login attempt)
+    auto_reactivation_enabled BOOLEAN DEFAULT TRUE
 );
 
 -- Create an index on the 'username' column for faster lookups
@@ -69,6 +79,12 @@ CREATE INDEX IF NOT EXISTS idx_user_username ON app_user (username);
 
 -- Create an index on the 'email' column for faster lookups
 CREATE INDEX IF NOT EXISTS idx_user_email ON app_user (email);
+
+-- Create an index on the 'deleted_at' column for soft-delete filtering
+CREATE INDEX IF NOT EXISTS idx_user_deleted_at ON app_user (deleted_at);
+
+-- Create an index on 'scheduled_deletion_at' for identifying users pending permanent deletion
+CREATE INDEX IF NOT EXISTS idx_user_scheduled_deletion_at ON app_user (scheduled_deletion_at);
 
 -- ==========================================================
 -- User-Role Join Table (user_roles)

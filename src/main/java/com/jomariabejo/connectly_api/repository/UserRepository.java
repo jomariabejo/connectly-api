@@ -10,22 +10,39 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
-    Optional<User> findByUsername(String username);
-    Optional<User> findByEmail(String email);
-    boolean existsByUsername(String username);
-    boolean existsByEmail(String email);
-    Optional<User> findByUsernameOrEmail(String username, String email);
-    Optional<User> findByVerificationToken(String token);
+    
+    // Active user queries (soft-delete filtering)
+    @Query("SELECT u FROM User u WHERE u.username = :username AND u.deletedAt IS NULL")
+    Optional<User> findByUsername(@Param("username") String username);
+    
+    @Query("SELECT u FROM User u WHERE u.email = :email AND u.deletedAt IS NULL")
+    Optional<User> findByEmail(@Param("email") String email);
+    
+    @Query("SELECT CASE WHEN COUNT(u) > 0 THEN true ELSE false END FROM User u WHERE u.username = :username AND u.deletedAt IS NULL")
+    boolean existsByUsername(@Param("username") String username);
+    
+    @Query("SELECT CASE WHEN COUNT(u) > 0 THEN true ELSE false END FROM User u WHERE u.email = :email AND u.deletedAt IS NULL")
+    boolean existsByEmail(@Param("email") String email);
+    
+    @Query("SELECT u FROM User u WHERE (u.username = :username OR u.email = :email) AND u.deletedAt IS NULL")
+    Optional<User> findByUsernameOrEmail(@Param("username") String username, @Param("email") String email);
+    
+    @Query("SELECT u FROM User u WHERE u.verificationToken = :token AND u.deletedAt IS NULL")
+    Optional<User> findByVerificationToken(@Param("token") String token);
 
-    // Pagination methods
+    // Pagination methods with soft-delete filtering
+    @Query("SELECT u FROM User u WHERE u.deletedAt IS NULL")
     Page<User> findAll(Pageable pageable);
 
-    // Filtering methods
+    // Filtering methods with soft-delete filtering
     @Query("SELECT u FROM User u WHERE " +
+            "u.deletedAt IS NULL AND " +
             "(:username IS NULL OR u.username LIKE %:username%) AND " +
             "(:email IS NULL OR u.email LIKE %:email%) AND " +
             "(:firstName IS NULL OR u.firstName LIKE %:firstName%) AND " +
@@ -36,4 +53,17 @@ public interface UserRepository extends JpaRepository<User, Long> {
             @Param("firstName") String firstName,
             @Param("lastName") String lastName,
             Pageable pageable);
+
+    // Soft-delete specific queries
+    @Query("SELECT u FROM User u WHERE u.deletedAt IS NOT NULL")
+    List<User> findDeletedUsers();
+
+    @Query("SELECT u FROM User u WHERE u.scheduledDeletionAt IS NOT NULL AND u.scheduledDeletionAt <= CURRENT_TIMESTAMP")
+    List<User> findUsersScheduledForDeletion();
+
+    @Query("SELECT u FROM User u WHERE u.deletedAt IS NOT NULL AND u.deletedAt > :deletedAfter")
+    List<User> findRecentlyDeletedUsers(@Param("deletedAfter") LocalDateTime deletedAfter);
+
+    @Query("SELECT u FROM User u WHERE u.id = :id AND u.deletedAt IS NULL")
+    Optional<User> findActiveUserById(@Param("id") Long id);
 }

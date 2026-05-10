@@ -14,19 +14,32 @@ import java.util.Optional;
 
 @Repository
 public interface PostRepository extends JpaRepository<Post, Long> {
+    
+    @Query("SELECT p FROM Post p WHERE p.createdBy.deletedAt IS NULL")
     List<Post> findAll();
-    Optional<Post> findById(Long id);
+    
+    @Query("SELECT p FROM Post p WHERE p.id = :id AND p.createdBy.deletedAt IS NULL")
+    Optional<Post> findById(@Param("id") Long id);
+    
     Optional<Post> findByTitle(String title);
+    
     Post save(Post post);
+    
     void delete(Post post);
-    List<Post> findByCreatedById(Long userId);
+    
+    @Query("SELECT p FROM Post p WHERE p.createdBy.id = :userId AND p.createdBy.deletedAt IS NULL")
+    List<Post> findByCreatedById(@Param("userId") Long userId);
 
-    // Pagination and sorting methods
+    // Pagination and sorting methods with deleted user filtering
+    @Query("SELECT p FROM Post p WHERE p.createdBy.deletedAt IS NULL")
     Page<Post> findAll(Pageable pageable);
-    Page<Post> findByCreatedById(Long userId, Pageable pageable);
+    
+    @Query("SELECT p FROM Post p WHERE p.createdBy.id = :userId AND p.createdBy.deletedAt IS NULL")
+    Page<Post> findByCreatedById(@Param("userId") Long userId, Pageable pageable);
 
-    // Filtering methods
+    // Filtering methods with deleted user filtering
     @Query("SELECT p FROM Post p WHERE " +
+            "p.createdBy.deletedAt IS NULL AND " +
             "(:title IS NULL OR p.title LIKE %:title%) AND " +
             "(:content IS NULL OR p.content LIKE %:content%) AND " +
             "(:postType IS NULL OR p.postType = :postType) AND " +
@@ -40,7 +53,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             @Param("createdById") Long createdById,
             Pageable pageable);
 
-    @Query("SELECT p FROM Post p WHERE p.createdBy.id = :userId AND " +
+    @Query("SELECT p FROM Post p WHERE p.createdBy.id = :userId AND p.createdBy.deletedAt IS NULL AND " +
             "(:title IS NULL OR p.title LIKE %:title%) AND " +
             "(:content IS NULL OR p.content LIKE %:content%) AND " +
             "(:postType IS NULL OR p.postType = :postType) AND " +

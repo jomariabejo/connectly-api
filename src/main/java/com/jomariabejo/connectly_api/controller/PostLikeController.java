@@ -24,15 +24,17 @@ public class PostLikeController {
         this.authenticationService = authenticationService;
     }
 
-    /**
-     * Toggle like/unlike for a post.
-     */
-    @PostMapping("/likes")
+    @PostMapping("/{postId}/likes/toggle")
     public ResponseEntity<GenericResponse<Boolean>> toggleLike(@PathVariable Long postId) {
-        User currentUser = authenticationService.getAuthenticatedUser();
-        Boolean isNowLiked = postLikeService.togglePostLike(postId, currentUser);
 
-        String message = isNowLiked ? "Post liked successfully." : "Post unliked successfully.";
+        User currentUser = authenticationService.getAuthenticatedUser();
+
+        boolean isNowLiked = postLikeService.togglePostLike(postId, currentUser);
+
+        String message = isNowLiked
+                ? "Post liked successfully."
+                : "Post unliked successfully.";
+
         return ResponseEntity.ok(new GenericResponse<>(message, isNowLiked));
     }
 

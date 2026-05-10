@@ -61,6 +61,18 @@ public class User implements UserDetails {
     @Column(name = "expiry_date")
     private Date expiryDate;
 
+    @Column(name = "deleted_at", nullable = true)
+    private Date deletedAt;
+
+    @Column(name = "is_active")
+    private boolean isActive = true;
+
+    @Column(name = "scheduled_deletion_at", nullable = true)
+    private Date scheduledDeletionAt;
+
+    @Column(name = "auto_reactivation_enabled")
+    private Boolean autoReactivationEnabled = true;
+
     public User() {}
 
     public User(String username, String password, String email) {
@@ -109,5 +121,13 @@ public class User implements UserDetails {
         cal.setTime(new Timestamp(cal.getTime().getTime()));
         cal.add(Calendar.MINUTE, expiryTimeInMinutes);
         return new Date(cal.getTime().getTime());
+    }
+
+    public boolean isAutoReactivationEnabled() {
+        return autoReactivationEnabled;
+    }
+
+    public void setAutoReactivationEnabled(boolean autoReactivationEnabled) {
+        this.autoReactivationEnabled = autoReactivationEnabled;
     }
 }

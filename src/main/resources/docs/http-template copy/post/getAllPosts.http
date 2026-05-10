@@ -1,3 +1,8 @@
 ### Get All Posts
-GET http://localhost:8080/api/posts
-Authorization: Bearer TOKEN_HERE
+GET http://localhost:8080/posts
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QGdtYWlsLmNvbSIsImlhdCI6MTc3ODM1MTc5NSwiZXhwIjoxNzc4MzU1Mzk1fQ.2D9xI-bZENEA1aPHvYzlCKn_QgzQ53Gl5jtDxcmgfmI
+
+
+### Like Post
+POST http://localhost:8080/post/1/like
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QGdtYWlsLmNvbSIsImlhdCI6MTc3ODM1MTc5NSwiZXhwIjoxNzc4MzU1Mzk1fQ.2D9xI-bZENEA1aPHvYzlCKn_QgzQ53Gl5jtDxcmgfmI
