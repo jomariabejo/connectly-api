@@ -6,6 +6,7 @@ import com.jomariabejo.connectly_api.dto.RegisterUserDto;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.repository.UserRepository;
 import com.jomariabejo.connectly_api.service.EmailService;
+import com.jomariabejo.connectly_api.support.JwtTestInitializer;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -16,6 +17,7 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
 
 import java.util.Optional;
@@ -23,7 +25,9 @@ import java.util.UUID;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ContextConfiguration(initializers = JwtTestInitializer.class)
 public class UserAuthE2eTest {
+    private static final String PASSWORD = "Password123!";
 
     @Autowired
     private TestRestTemplate restTemplate;
@@ -44,7 +48,7 @@ public class UserAuthE2eTest {
         RegisterUserDto registerUserDto = new RegisterUserDto();
         registerUserDto.setEmail(email);
         registerUserDto.setUsername("e2e-user");
-        registerUserDto.setPassword("Password123!");
+        registerUserDto.setPassword(PASSWORD);
 
         ResponseEntity<User> registrationResponse = restTemplate.postForEntity(
                 "/auth/registration",
@@ -70,7 +74,7 @@ public class UserAuthE2eTest {
 
         LoginUserDto loginUserDto = new LoginUserDto();
         loginUserDto.setEmail(email);
-        loginUserDto.setPassword("Password123!");
+        loginUserDto.setPassword(PASSWORD);
 
         ResponseEntity<LoginResponse> loginResponse = restTemplate.postForEntity(
                 "/auth/login",
