@@ -1,0 +1,5 @@
+### Get Post By ID
+GET http://localhost:8080/posts/1
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QGdtYWlsLmNvbSIsImlhdCI6MTc3ODM1MTc5NSwiZXhwIjoxNzc4MzU1Mzk1fQ.2D9xI-bZENEA1aPHvYzlCKn_QgzQ53Gl5jtDxcmgfmI
+
+

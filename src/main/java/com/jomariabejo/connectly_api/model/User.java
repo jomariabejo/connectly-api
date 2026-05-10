@@ -32,6 +32,12 @@ public class User implements UserDetails {
     @Column(unique = true, nullable = false)
     private String email;
 
+    @Column
+    private String firstName;
+
+    @Column
+    private String lastName;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "user_roles",
             joinColumns = @JoinColumn(name = "user_id"),
@@ -49,9 +55,23 @@ public class User implements UserDetails {
     @Column(name = "enabled")
     private boolean enabled = false;
 
+    @Column(nullable = true, unique = true)
     private String verificationToken;
 
+    @Column(name = "expiry_date")
     private Date expiryDate;
+
+    @Column(name = "deleted_at", nullable = true)
+    private Date deletedAt;
+
+    @Column(name = "is_active")
+    private boolean isActive = true;
+
+    @Column(name = "scheduled_deletion_at", nullable = true)
+    private Date scheduledDeletionAt;
+
+    @Column(name = "auto_reactivation_enabled")
+    private Boolean autoReactivationEnabled = true;
 
     public User() {}
 
@@ -101,5 +121,13 @@ public class User implements UserDetails {
         cal.setTime(new Timestamp(cal.getTime().getTime()));
         cal.add(Calendar.MINUTE, expiryTimeInMinutes);
         return new Date(cal.getTime().getTime());
+    }
+
+    public boolean isAutoReactivationEnabled() {
+        return autoReactivationEnabled;
+    }
+
+    public void setAutoReactivationEnabled(boolean autoReactivationEnabled) {
+        this.autoReactivationEnabled = autoReactivationEnabled;
     }
 }

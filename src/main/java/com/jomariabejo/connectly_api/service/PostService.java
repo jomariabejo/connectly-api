@@ -3,11 +3,15 @@ package com.jomariabejo.connectly_api.service;
 import com.jomariabejo.connectly_api.dto.post.CreatePostDto;
 import com.jomariabejo.connectly_api.dto.post.PostResponseDto;
 import com.jomariabejo.connectly_api.dto.post.UpdatePostDto;
+import com.jomariabejo.connectly_api.dto.PaginationDto;
+import com.jomariabejo.connectly_api.dto.PostFilterDto;
 import com.jomariabejo.connectly_api.exception.UnauthorizedAccessException;
 import com.jomariabejo.connectly_api.mapper.PostMapper;
 import com.jomariabejo.connectly_api.model.Post;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.repository.PostRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -114,5 +118,55 @@ public class PostService {
 
         // If post is not found or user is not authorized, return false
         return false;
+    }
+
+    // Pagination methods
+    public PaginationDto<PostResponseDto> getAllPostsPaginated(Pageable pageable) {
+        Page<Post> postsPage = postRepository.findAll(pageable);
+        return mapPageToDto(postsPage);
+    }
+
+    public PaginationDto<PostResponseDto> getAllPostsWithFilters(PostFilterDto filterDto, Pageable pageable) {
+        Page<Post> postsPage = postRepository.findWithFilters(
+                filterDto.getTitle(),
+                filterDto.getContent(),
+                filterDto.getPostType(),
+                filterDto.getPrivacy(),
+                filterDto.getCreatedById(),
+                pageable
+        );
+        return mapPageToDto(postsPage);
+    }
+
+    public PaginationDto<PostResponseDto> getUserPostsPaginated(Long userId, Pageable pageable) {
+        Page<Post> postsPage = postRepository.findByCreatedById(userId, pageable);
+        return mapPageToDto(postsPage);
+    }
+
+    public PaginationDto<PostResponseDto> getUserPostsWithFilters(Long userId, PostFilterDto filterDto, Pageable pageable) {
+        Page<Post> postsPage = postRepository.findUserPostsWithFilters(
+                userId,
+                filterDto.getTitle(),
+                filterDto.getContent(),
+                filterDto.getPostType(),
+                filterDto.getPrivacy(),
+                pageable
+        );
+        return mapPageToDto(postsPage);
+    }
+
+    private PaginationDto<PostResponseDto> mapPageToDto(Page<Post> page) {
+        List<PostResponseDto> content = page.getContent()
+                .stream()
+                .map(PostResponseDto::new)
+                .collect(Collectors.toList());
+
+        return new PaginationDto<>(
+                content,
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages()
+        );
     }
 }

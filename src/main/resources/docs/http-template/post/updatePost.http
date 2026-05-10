@@ -1,0 +1,11 @@
+### Update Post
+PUT http://localhost:8080/api/posts/1
+Authorization: Bearer TOKEN_HERE
+Content-Type: application/json
+
+{
+  "title": "Updated Post",
+  "content": "Updated content",
+  "postType": "text",
+  "privacy": "public"
+}

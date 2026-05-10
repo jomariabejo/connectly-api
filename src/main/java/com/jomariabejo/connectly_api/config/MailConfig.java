@@ -28,13 +28,17 @@ public class MailConfig {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
         mailSender.setHost(host);
         mailSender.setPort(port);
-        mailSender.setUsername(username);
-        mailSender.setPassword(password);
+        
+        // Only set username/password if they're configured
+        if (username != null && !username.isEmpty()) {
+            mailSender.setUsername(username);
+            mailSender.setPassword(password);
+        }
 
         Properties props = mailSender.getJavaMailProperties();
         props.put("mail.transport.protocol", "smtp");
-        props.put("mail.smtp.auth", "true");
-        props.put("mail.smtp.starttls.enable", "true");
+        props.put("mail.smtp.auth", false);
+        props.put("mail.smtp.starttls.enable", false);
         props.put("mail.debug", "true");
 
         return mailSender;

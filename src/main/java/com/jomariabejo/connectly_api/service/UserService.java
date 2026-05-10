@@ -115,12 +115,16 @@ package com.jomariabejo.connectly_api.service;//package com.jomariabejo.connectl
 
 
 import ch.qos.logback.core.model.Model;
+import com.jomariabejo.connectly_api.dto.PaginationDto;
+import com.jomariabejo.connectly_api.dto.UserFilterDto;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.model.VerificationToken;
 import com.jomariabejo.connectly_api.repository.UserRepository;
 import com.jomariabejo.connectly_api.repository.VerificationTokenRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -131,6 +135,7 @@ import org.springframework.web.context.request.WebRequest;
 
 import java.sql.Timestamp;
 import java.util.*;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -164,5 +169,159 @@ public class UserService {
         cal.setTime(new Timestamp(cal.getTime().getTime()));
         cal.add(Calendar.MINUTE, expiryTimeInMinutes);
         return new Date(cal.getTime().getTime());
+    }
+
+    // Pagination methods
+    public PaginationDto<User> getAllUsersPaginated(Pageable pageable) {
+        Page<User> usersPage = userRepository.findAll(pageable);
+        return mapPageToDto(usersPage);
+    }
+
+    public PaginationDto<User> getAllUsersWithFilters(UserFilterDto filterDto, Pageable pageable) {
+        Page<User> usersPage = userRepository.findWithFilters(
+                filterDto.getUsername(),
+                filterDto.getEmail(),
+                filterDto.getFirstName(),
+                filterDto.getLastName(),
+                pageable
+        );
+        return mapPageToDto(usersPage);
+    }
+
+    private PaginationDto<User> mapPageToDto(Page<User> page) {
+        List<User> content = page.getContent();
+        return new PaginationDto<>(
+                content,
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages()
+        );
+    }
+
+    /**
+     * Soft-delete a user account (non-permanent, 30-day grace period before permanent deletion).
+     * Sets deletion timestamps and schedules permanent deletion after 30 days.
+     *
+     * @param user The user to soft-delete
+     * @return Updated user with deletion timestamps set
+     */
+    public User softDeleteUser(User user) {
+        Date deletedAt = new Date();
+        Date scheduledDeletionAt = calculateScheduledDeletionDate(30); // 30 days grace period
+
+        user.setDeletedAt(deletedAt);
+        user.setScheduledDeletionAt(scheduledDeletionAt);
+        user.setActive(false);
+
+        return userRepository.save(user);
+    }
+
+    /**
+     * Reactivate a soft-deleted user account within the grace period.
+     * Clears deletion timestamps and resets active status.
+     *
+     * @param user The user to reactivate
+     * @return Updated user with deletion timestamps cleared
+     */
+    public User reactivateUser(User user) {
+        user.setDeletedAt(null);
+        user.setScheduledDeletionAt(null);
+        user.setActive(true);
+
+        return userRepository.save(user);
+    }
+
+    /**
+     * Permanently delete a user account (hard delete).
+     * This removes all user data and related records. Should normally only be called after grace period expires.
+     *
+     * @param user The user to permanently delete
+     */
+    public void permanentlyDeleteUser(User user) {
+        // Hard delete the user (cascade deletes are handled by database constraints)
+        userRepository.delete(user);
+    }
+
+    /**
+     * Extend the deletion grace period for a user by a specified number of days.
+     * Can only be called by admins (authorization should be checked at controller level).
+     *
+     * @param user The deleted user
+     * @param additionalDays Number of days to extend the grace period by
+     * @return Updated user with extended deletion date
+     */
+    public User extendDeletionGracePeriod(User user, int additionalDays) {
+        if (user.getScheduledDeletionAt() == null) {
+            throw new IllegalStateException("User is not scheduled for deletion");
+        }
+
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(user.getScheduledDeletionAt());
+        cal.add(Calendar.DAY_OF_MONTH, additionalDays);
+
+        user.setScheduledDeletionAt(new Date(cal.getTimeInMillis()));
+        return userRepository.save(user);
+    }
+
+    /**
+     * Check for users scheduled for permanent deletion and delete them if the scheduled time has passed.
+     * This is a scheduled task that runs periodically (e.g., daily).
+     *
+     * @return Count of users permanently deleted
+     */
+    public int checkAndDeleteScheduledUsers() {
+        List<User> scheduledForDeletion = userRepository.findUsersScheduledForDeletion();
+        
+        for (User user : scheduledForDeletion) {
+            permanentlyDeleteUser(user);
+        }
+
+        return scheduledForDeletion.size();
+    }
+
+    /**
+     * Check if a user is within the deletion grace period.
+     *
+     * @param user The user to check
+     * @return true if user is deleted and within grace period, false otherwise
+     */
+    public boolean isWithinGracePeriod(User user) {
+        if (user.getDeletedAt() == null) {
+            return false; // Not deleted
+        }
+
+        return user.getScheduledDeletionAt().after(new Date());
+    }
+
+    /**
+     * Calculate a date for scheduled deletion (grace period).
+     *
+     * @param gracePeriodDays Number of days in the grace period
+     * @return Date when the grace period expires
+     */
+    private Date calculateScheduledDeletionDate(int gracePeriodDays) {
+        Calendar cal = Calendar.getInstance();
+        cal.add(Calendar.DAY_OF_MONTH, gracePeriodDays);
+        return new Date(cal.getTimeInMillis());
+    }
+
+    /**
+     * Get a user by ID (only active users).
+     *
+     * @param id The user ID
+     * @return Optional containing the user if found and not deleted
+     */
+    public Optional<User> getUserById(Long id) {
+        return userRepository.findActiveUserById(id);
+    }
+
+    /**
+     * Get all users scheduled for permanent deletion.
+     *
+     * @return List of users with scheduled_deletion_at <= now
+     */
+    public List<User> getUsersScheduledForDeletion() {
+        return userRepository.findUsersScheduledForDeletion();
     }
 }
