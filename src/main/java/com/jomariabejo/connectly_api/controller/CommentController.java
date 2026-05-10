@@ -3,10 +3,15 @@ package com.jomariabejo.connectly_api.controller;
 import com.jomariabejo.connectly_api.dto.comment.CommentResponseDto;
 import com.jomariabejo.connectly_api.dto.comment.CreateCommentDto;
 import com.jomariabejo.connectly_api.dto.comment.UpdateCommentDto;
+import com.jomariabejo.connectly_api.dto.CommentFilterDto;
+import com.jomariabejo.connectly_api.dto.PaginationDto;
 import com.jomariabejo.connectly_api.service.AuthenticationService;
 import com.jomariabejo.connectly_api.service.CommentService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -83,5 +88,30 @@ public class CommentController {
                 authenticationService.getAuthenticatedUser()
         );
         return ResponseEntity.noContent().build();
+    }
+
+    // Pagination endpoints
+    @GetMapping
+    public ResponseEntity<PaginationDto<CommentResponseDto>> getPostCommentsPaginated(
+            @PathVariable Long postId,
+            @PageableDefault(size = 10, page = 0, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @RequestParam(required = false) String content,
+            @RequestParam(required = false) Long createdById) {
+
+        log.info("Fetching paginated comments for post {}", postId);
+        CommentFilterDto filterDto = new CommentFilterDto(content, createdById, postId);
+        PaginationDto<CommentResponseDto> result;
+
+        if (hasFilters(filterDto)) {
+            result = commentService.getPostCommentsWithFilters(postId, filterDto, pageable);
+        } else {
+            result = commentService.getPostCommentsPaginated(postId, pageable);
+        }
+
+        return ResponseEntity.ok(result);
+    }
+
+    private boolean hasFilters(CommentFilterDto filterDto) {
+        return filterDto.getContent() != null || filterDto.getCreatedById() != null;
     }
 }

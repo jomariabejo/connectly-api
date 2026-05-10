@@ -95,4 +95,9 @@ public class PostLikeService {
         }
     }
 
+    public boolean isPostLikedByUser(Long postId, User currentUser) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'isPostLikedByUser'");
+    }
+
 }

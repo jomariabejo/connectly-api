@@ -1,0 +1,9 @@
+### Register User
+POST http://localhost:8080/auth/registration
+Content-Type: application/json
+
+{
+  "email": "test@gmail.com",
+  "password": "admin123",
+  "username": "helloworld"
+}

@@ -1,0 +1,11 @@
+### Create Post
+POST http://localhost:8080/posts
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QGdtYWlsLmNvbSIsImlhdCI6MTc3ODM1MTUxMiwiZXhwIjoxNzc4MzU1MTEyfQ.yYzEubs2g8zCz0Ua1UgPxl0UAFN4x1D_RPZ22wG0lQQ
+Content-Type: application/json
+
+{
+  "title": "My First Post",
+  "content": "This is my first post",
+  "postType": "text",
+  "privacy": "public"
+}

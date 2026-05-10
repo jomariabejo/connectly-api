@@ -2,6 +2,7 @@ package com.jomariabejo.connectly_api.service;
 
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.model.VerificationToken;
+import com.jomariabejo.connectly_api.repository.UserRepository;
 import com.jomariabejo.connectly_api.repository.VerificationTokenRepository;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
@@ -9,22 +10,26 @@ import org.slf4j.Logger;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.scheduling.annotation.Scheduled;
 
 import java.sql.Timestamp;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class VerificationTokenService {
 
     private final VerificationTokenRepository tokenRepository;
+    private final UserRepository userRepository;
     private final Logger logger = LoggerFactory.getLogger(VerificationTokenService.class);
 
     @Autowired
-    public VerificationTokenService(VerificationTokenRepository tokenRepository) {
+    public VerificationTokenService(VerificationTokenRepository tokenRepository, UserRepository userRepository) {
         this.tokenRepository = tokenRepository;
+        this.userRepository = userRepository;
     }
 
     public VerificationToken createVerificationToken(User user, String token) {
@@ -41,8 +46,8 @@ public class VerificationTokenService {
         return tokenRepository.save(verificationToken);
     }
 
-    public VerificationToken getVerificationToken(String token) {
-        return tokenRepository.findByToken(token);
+    public Optional<VerificationToken> getVerificationToken(String token) {
+        return (tokenRepository.findByToken(token));
     }
 
     public VerificationToken getTokenByUser(User user) {
@@ -53,25 +58,27 @@ public class VerificationTokenService {
         tokenRepository.delete(token);
     }
 
+    @Transactional
     public boolean validateToken(String token) {
-        VerificationToken verificationToken = tokenRepository.findByToken(token);
-        if (verificationToken == null) {
-            logger.warn("No token found: " + token);
-            return false;
-        }
 
-        User user = verificationToken.getUser();
-        Calendar cal = Calendar.getInstance();
+        VerificationToken verificationToken = getVerificationToken(token)
+            .orElseThrow(() -> {
+                logger.warn("No token found: {}", token);
+                return new RuntimeException("Invalid token");
+            });
 
-        if ((verificationToken.getExpiryDate().getTime() - cal.getTime().getTime()) <= 0) {
-            logger.warn("Token expired: " + token);
+        if (verificationToken.getExpiryDate().before(new Date())) {
+            logger.warn("Token expired: {}", token);
             tokenRepository.delete(verificationToken);
             return false;
         }
 
+        User user = verificationToken.getUser();
         user.setEnabled(true);
-        // Delete token as it's been used
+        userRepository.save(user);
+
         tokenRepository.delete(verificationToken);
+
         return true;
     }
 
