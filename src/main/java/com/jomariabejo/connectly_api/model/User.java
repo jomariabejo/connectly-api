@@ -32,6 +32,12 @@ public class User implements UserDetails {
     @Column(unique = true, nullable = false)
     private String email;
 
+    @Column
+    private String firstName;
+
+    @Column
+    private String lastName;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "user_roles",
             joinColumns = @JoinColumn(name = "user_id"),
@@ -49,8 +55,10 @@ public class User implements UserDetails {
     @Column(name = "enabled")
     private boolean enabled = false;
 
+    @Column(nullable = true, unique = true)
     private String verificationToken;
 
+    @Column(name = "expiry_date")
     private Date expiryDate;
 
     public User() {}

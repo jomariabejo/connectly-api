@@ -1,0 +1,9 @@
+### Create Comment
+POST http://localhost:8080/api/comments
+Authorization: Bearer TOKEN_HERE
+Content-Type: application/json
+
+{
+  "text": "Nice post!",
+  "postId": 1
+}

@@ -1,0 +1,3 @@
+### Delete Post
+DELETE http://localhost:8080/api/posts/1
+Authorization: Bearer TOKEN_HERE

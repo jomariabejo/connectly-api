@@ -1,0 +1,11 @@
+### Create Post
+POST http://localhost:8080/api/posts
+Authorization: Bearer TOKEN_HERE
+Content-Type: application/json
+
+{
+  "title": "My First Post",
+  "content": "This is my first post",
+  "postType": "text",
+  "privacy": "public"
+}

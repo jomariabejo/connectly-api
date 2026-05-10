@@ -115,12 +115,16 @@ package com.jomariabejo.connectly_api.service;//package com.jomariabejo.connectl
 
 
 import ch.qos.logback.core.model.Model;
+import com.jomariabejo.connectly_api.dto.PaginationDto;
+import com.jomariabejo.connectly_api.dto.UserFilterDto;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.model.VerificationToken;
 import com.jomariabejo.connectly_api.repository.UserRepository;
 import com.jomariabejo.connectly_api.repository.VerificationTokenRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -131,6 +135,7 @@ import org.springframework.web.context.request.WebRequest;
 
 import java.sql.Timestamp;
 import java.util.*;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -164,5 +169,33 @@ public class UserService {
         cal.setTime(new Timestamp(cal.getTime().getTime()));
         cal.add(Calendar.MINUTE, expiryTimeInMinutes);
         return new Date(cal.getTime().getTime());
+    }
+
+    // Pagination methods
+    public PaginationDto<User> getAllUsersPaginated(Pageable pageable) {
+        Page<User> usersPage = userRepository.findAll(pageable);
+        return mapPageToDto(usersPage);
+    }
+
+    public PaginationDto<User> getAllUsersWithFilters(UserFilterDto filterDto, Pageable pageable) {
+        Page<User> usersPage = userRepository.findWithFilters(
+                filterDto.getUsername(),
+                filterDto.getEmail(),
+                filterDto.getFirstName(),
+                filterDto.getLastName(),
+                pageable
+        );
+        return mapPageToDto(usersPage);
+    }
+
+    private PaginationDto<User> mapPageToDto(Page<User> page) {
+        List<User> content = page.getContent();
+        return new PaginationDto<>(
+                content,
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages()
+        );
     }
 }
