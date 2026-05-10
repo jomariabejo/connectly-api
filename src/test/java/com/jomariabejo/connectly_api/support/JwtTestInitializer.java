@@ -2,7 +2,7 @@ package com.jomariabejo.connectly_api.support;
 
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.test.context.support.TestPropertyValues;
+import org.springframework.boot.test.util.TestPropertyValues;
 
 import java.security.SecureRandom;
 import java.util.Base64;
