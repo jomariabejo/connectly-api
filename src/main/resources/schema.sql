@@ -230,3 +230,50 @@ CREATE TABLE IF NOT EXISTS verification_token (
     -- Foreign key constraint linking the token to a user
     FOREIGN KEY (user_id) REFERENCES app_user (id) ON DELETE CASCADE
 );
+
+-- ==========================================================
+-- Password Reset Token Table
+-- ==========================================================
+-- This table stores password reset tokens for the forgot password flow.
+-- Supports both email-based tokens and OTP-based resets.
+
+CREATE TABLE IF NOT EXISTS password_reset_token (
+    -- Unique identifier for the token (primary key)
+    id              BIGSERIAL PRIMARY KEY,
+
+    -- Token string for email-based reset (unique, not null)
+    token           VARCHAR(255) UNIQUE,
+
+    -- OTP for OTP-based reset (optional)
+    otp             VARCHAR(10),
+
+    -- Type of token: LINK (email) or OTP
+    token_type      VARCHAR(50) NOT NULL,
+
+    -- Reference to the user (foreign key)
+    user_id         BIGINT NOT NULL,
+
+    -- Creation timestamp
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    -- Expiration date and time
+    expiry_date     TIMESTAMP NOT NULL,
+
+    -- Whether the token has been used
+    is_used         BOOLEAN DEFAULT FALSE NOT NULL,
+
+    -- Number of validation attempts (for OTP)
+    attempt_count   INTEGER DEFAULT 0 NOT NULL,
+
+    -- Foreign key constraint linking the token to a user
+    FOREIGN KEY (user_id) REFERENCES app_user (id) ON DELETE CASCADE,
+
+    -- Index for faster lookups
+    UNIQUE (token)
+);
+
+-- Create index on user_id for faster queries when finding tokens by user
+CREATE INDEX IF NOT EXISTS idx_password_reset_token_user_id ON password_reset_token(user_id);
+
+-- Create index on expiry_date for faster cleanup queries
+CREATE INDEX IF NOT EXISTS idx_password_reset_token_expiry_date ON password_reset_token(expiry_date);
