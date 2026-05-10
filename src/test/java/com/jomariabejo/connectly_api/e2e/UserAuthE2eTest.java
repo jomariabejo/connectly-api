@@ -42,12 +42,14 @@ public class UserAuthE2eTest {
     private JavaMailSender javaMailSender;
 
     @Test
-    public void registrationVerificationAndLoginFlow() {
-        String email = "e2e-user-" + UUID.randomUUID() + "@example.com";
+    public void shouldCompleteRegistrationVerificationAndLoginFlow() {
+        String uniqueId = UUID.randomUUID().toString();
+        String email = "e2e-user-" + uniqueId + "@example.com";
+        String username = "e2e-user-" + uniqueId;
 
         RegisterUserDto registerUserDto = new RegisterUserDto();
         registerUserDto.setEmail(email);
-        registerUserDto.setUsername("e2e-user");
+        registerUserDto.setUsername(username);
         registerUserDto.setPassword(PASSWORD);
 
         ResponseEntity<User> registrationResponse = restTemplate.postForEntity(
