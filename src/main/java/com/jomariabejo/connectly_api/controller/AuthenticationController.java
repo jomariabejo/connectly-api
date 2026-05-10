@@ -3,6 +3,9 @@ package com.jomariabejo.connectly_api.controller;
 import com.jomariabejo.connectly_api.dto.LoginResponse;
 import com.jomariabejo.connectly_api.dto.RegisterUserDto;
 import com.jomariabejo.connectly_api.dto.LoginUserDto;
+import com.jomariabejo.connectly_api.dto.ForgotPasswordRequest;
+import com.jomariabejo.connectly_api.dto.ResetPasswordRequest;
+import com.jomariabejo.connectly_api.dto.GenericResponse;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.model.VerificationToken;
 import com.jomariabejo.connectly_api.repository.UserRepository;
@@ -114,6 +117,51 @@ public class AuthenticationController {
             return ResponseEntity.ok("Email verified successfully. You can now login.");
         } else {
             return ResponseEntity.badRequest().body("Invalid or expired verification token");
+        }
+    }
+
+    @PostMapping("/forgot-password/email")
+    public ResponseEntity<GenericResponse<String>> forgotPasswordEmail(@Valid @RequestBody ForgotPasswordRequest request) {
+        log.info("Password reset requested via email for: {}", request.getEmail());
+        try {
+            authenticationService.initiatePasswordResetEmail(request.getEmail());
+            return ResponseEntity.ok(new GenericResponse<>(
+                "If an account exists with this email, you will receive a password reset link shortly.", null));
+        } catch (Exception e) {
+            log.error("Error processing email password reset", e);
+            return ResponseEntity.status(429).body(new GenericResponse<>(
+                "Too many requests. Please try again later.", null));
+        }
+    }
+
+    @PostMapping("/forgot-password/otp")
+    public ResponseEntity<GenericResponse<String>> forgotPasswordOtp(@Valid @RequestBody ForgotPasswordRequest request) {
+        log.info("Password reset requested via OTP for: {}", request.getEmail());
+        try {
+            authenticationService.initiatePasswordResetOtp(request.getEmail());
+            return ResponseEntity.ok(new GenericResponse<>(
+                "If an account exists with this email, you will receive a verification code shortly.", null));
+        } catch (Exception e) {
+            log.error("Error processing OTP password reset", e);
+            return ResponseEntity.status(429).body(new GenericResponse<>(
+                "Too many requests. Please try again later.", null));
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<GenericResponse<String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        log.info("Password reset attempt initiated");
+        try {
+            authenticationService.resetPassword(request.getToken(), request.getOtp(), request.getNewPassword());
+            return ResponseEntity.ok(new GenericResponse<>(
+                "Your password has been successfully reset. You can now login with your new password.", null));
+        } catch (RuntimeException e) {
+            log.error("Error resetting password: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(new GenericResponse<>(e.getMessage(), null));
+        } catch (Exception e) {
+            log.error("Unexpected error during password reset", e);
+            return ResponseEntity.status(500).body(new GenericResponse<>(
+                "An error occurred while resetting your password. Please try again later.", null));
         }
     }
 }
