@@ -46,7 +46,7 @@ public class PostLikeController {
     /**
      * Get like count for a post.
      */
-    @GetMapping("/likes/count")
+    @GetMapping("/{postId}/likes/count")
     public ResponseEntity<GenericResponse<Long>> countLikes(@PathVariable Long postId) {
         long count = postLikeService.countLikesByPost(postId);
         return ResponseEntity.ok(new GenericResponse<>("Total likes retrieved.", count));
