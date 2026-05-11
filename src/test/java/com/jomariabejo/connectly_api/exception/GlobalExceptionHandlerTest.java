@@ -1,0 +1,30 @@
+package com.jomariabejo.connectly_api.exception;
+
+import com.jomariabejo.connectly_api.dto.ErrorResponse;
+import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.ResponseEntity;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class GlobalExceptionHandlerTest {
+
+    private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
+
+    @Test
+    void dataIntegrityViolationForDuplicateUsernameReturnsReadableConflict() {
+        String databaseMessage = "ERROR: duplicate key value violates unique constraint \"app_user_username_key\"";
+        DataIntegrityViolationException exception = new DataIntegrityViolationException(
+                "could not execute statement",
+                new RuntimeException(databaseMessage)
+        );
+
+        ResponseEntity<ErrorResponse> response = handler.handleDataIntegrityViolationException(exception);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(409);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getError()).isEqualTo("Request conflicts with existing data");
+        assertThat(response.getBody().getMessage()).isEqualTo("Username is already taken");
+        assertThat(response.getBody().getMessage()).doesNotContain("insert into app_user");
+    }
+}

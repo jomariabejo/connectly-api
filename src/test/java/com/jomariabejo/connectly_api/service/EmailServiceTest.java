@@ -1,16 +1,20 @@
 package com.jomariabejo.connectly_api.service;
 
+import jakarta.mail.Session;
+import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.Test;
 import org.springframework.mail.MailSendException;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class EmailServiceTest {
 
@@ -41,9 +45,10 @@ class EmailServiceTest {
 
     private JavaMailSender failingMailSender() {
         JavaMailSender mailSender = mock(JavaMailSender.class);
+        when(mailSender.createMimeMessage()).thenReturn(new MimeMessage(Session.getInstance(new Properties())));
         doThrow(new MailSendException("Connection refused"))
                 .when(mailSender)
-                .send(any(SimpleMailMessage.class));
+                .send(any(MimeMessage.class));
         return mailSender;
     }
 }

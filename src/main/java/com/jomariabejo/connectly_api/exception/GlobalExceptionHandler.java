@@ -1,6 +1,7 @@
 package com.jomariabejo.connectly_api.exception;
 
 import com.jomariabejo.connectly_api.dto.ErrorResponse;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -53,6 +54,21 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.BAD_REQUEST, "Account reactivation failed", ex);
     }
 
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
+        String message = resolveDataIntegrityMessage(ex);
+        logger.warn("Data integrity violation: {}", message);
+
+        ErrorResponse errorResponse = new ErrorResponse(
+                HttpStatus.CONFLICT.value(),
+                "Request conflicts with existing data",
+                message,
+                System.currentTimeMillis()
+        );
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
         logger.error("Unhandled exception occurred", ex);
@@ -70,5 +86,20 @@ public class GlobalExceptionHandler {
         );
 
         return ResponseEntity.status(status).body(errorResponse);
+    }
+
+    private String resolveDataIntegrityMessage(DataIntegrityViolationException ex) {
+        String mostSpecificMessage = ex.getMostSpecificCause().getMessage();
+        String message = mostSpecificMessage == null ? ex.getMessage() : mostSpecificMessage;
+
+        if (message != null && message.contains("app_user_username_key")) {
+            return "Username is already taken";
+        }
+
+        if (message != null && message.contains("app_user_email_key")) {
+            return "Email is already registered";
+        }
+
+        return "The request conflicts with an existing record. Please review your input and try again.";
     }
 }
