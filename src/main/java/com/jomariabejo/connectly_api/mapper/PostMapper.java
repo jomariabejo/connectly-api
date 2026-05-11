@@ -12,6 +12,7 @@ public interface PostMapper {
     @Mapping(target = "createdAt", expression = "java(java.time.LocalDateTime.now())")
     Post postDtoToPost(CreatePostDto createPostDto);
 
+    @Mapping(target = "privacy", expression = "java(post.getPrivacy() != null ? post.getPrivacy().getValue() : \"public\")")
     PostResponseDto postToPostResponseDto(Post post);
 
     CreatePostDto postToCreatePostDto(Post post);

@@ -6,20 +6,18 @@ import com.jomariabejo.connectly_api.dto.LoginUserDto;
 import com.jomariabejo.connectly_api.dto.ForgotPasswordRequest;
 import com.jomariabejo.connectly_api.dto.ResetPasswordRequest;
 import com.jomariabejo.connectly_api.dto.GenericResponse;
+import com.jomariabejo.connectly_api.dto.user.UserResponseDto;
+import com.jomariabejo.connectly_api.mapper.UserMapper;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.model.VerificationToken;
 import com.jomariabejo.connectly_api.repository.UserRepository;
 import com.jomariabejo.connectly_api.repository.VerificationTokenRepository;
 import com.jomariabejo.connectly_api.service.AuthenticationService;
 import com.jomariabejo.connectly_api.service.JwtService;
-import com.jomariabejo.connectly_api.service.UserService;
-import com.jomariabejo.connectly_api.user.event.OnRegistrationCompleteEvent;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,9 +26,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.lang.StackWalker.Option;
-import java.util.Calendar;
-import java.util.Locale;
 import java.util.Optional;
 
 @RequestMapping("/v1/auth")
@@ -42,40 +37,32 @@ public class AuthenticationController {
 
     private final VerificationTokenRepository tokenRepository;
 
-    private final ApplicationEventPublisher eventPublisher;
-
     private final AuthenticationService authenticationService;
 
-    @Autowired
-    private HttpServletRequest request;
-
-    @Autowired
-    private UserService userService;
+    private final UserMapper userMapper;
 
     @Autowired
     private UserRepository userRepository;
 
-    public AuthenticationController(JwtService jwtService, VerificationTokenRepository tokenRepository, AuthenticationService authenticationService, ApplicationEventPublisher eventPublisher) {
+    public AuthenticationController(
+            JwtService jwtService,
+            VerificationTokenRepository tokenRepository,
+            AuthenticationService authenticationService,
+            UserMapper userMapper
+    ) {
         this.jwtService = jwtService;
         this.tokenRepository = tokenRepository;
         this.authenticationService = authenticationService;
-        this.eventPublisher = eventPublisher;
+        this.userMapper = userMapper;
     }
 
     @PostMapping("/registration")
-    public ResponseEntity<User> registerUserAccount(@Valid @RequestBody RegisterUserDto registerUserDto) {
+    public ResponseEntity<UserResponseDto> registerUserAccount(@Valid @RequestBody RegisterUserDto registerUserDto) {
         log.info("Starting registration");
         User registeredUser = authenticationService.signup(registerUserDto);
         log.info("Registered user: {}", registeredUser);
-        String appUrl = request.getRequestURL().toString().replace(request.getRequestURI(), request.getContextPath());
-        log.info("App URL: {}", appUrl);
-        eventPublisher.publishEvent(
-                new OnRegistrationCompleteEvent(
-                        registeredUser,
-                        Locale.ENGLISH,
-                        appUrl));
         log.info("Return Registered user: {}", registeredUser);
-        return ResponseEntity.ok(registeredUser);
+        return ResponseEntity.ok(userMapper.toResponseDto(registeredUser));
     }
 
     @PostMapping("/login")

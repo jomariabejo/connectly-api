@@ -110,7 +110,7 @@
               }
             },
             "url": "{{baseUrl}}/v1/auth/registration",
-            "description": "Creates a user account and sends an email verification link. If the response includes an id or verification token, they are saved to collection variables."
+            "description": "Creates a user account and sends one email verification link. The response stores the user id when present. Copy the verification token from Mailpit into the `verificationToken` collection variable before running verification requests."
           },
           "event": [
             {
@@ -121,7 +121,6 @@
                   "let json = {};",
                   "try { json = pm.response.json(); } catch (e) {}",
                   "if (json.id) pm.collectionVariables.set('currentUserId', json.id);",
-                  "if (json.verificationToken) pm.collectionVariables.set('verificationToken', json.verificationToken);",
                   "pm.test('Registration request completed', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
                 ]
               }
@@ -137,7 +136,7 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/v1/auth/verify?token={{verificationToken}}",
-            "description": "Verifies a newly registered user with the token from email or the registration response."
+            "description": "Verifies a newly registered user with the token copied from the Mailpit verification email."
           }
         },
         {
@@ -149,7 +148,7 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/v1/auth/registrationConfirm?token={{verificationToken}}",
-            "description": "Alternative registration confirmation endpoint backed by the verification token table."
+            "description": "Alternative registration confirmation endpoint backed by the verification token table. Use the token copied from the Mailpit verification email."
           }
         },
         {
