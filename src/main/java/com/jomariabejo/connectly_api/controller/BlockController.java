@@ -14,7 +14,7 @@ import java.util.List;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/blocks")
+@RequestMapping("/v1/blocks")
 public class BlockController {
 
     private final BlockService blockService;
@@ -29,7 +29,7 @@ public class BlockController {
 
     /**
      * Block a user
-     * POST /api/blocks/{userId}
+     * POST /v1/blocks/{userId}
      */
     @PostMapping("/{userId}")
     public ResponseEntity<Void> blockUser(@PathVariable Long userId) {
@@ -47,7 +47,7 @@ public class BlockController {
 
     /**
      * Unblock a user
-     * DELETE /api/blocks/{userId}
+     * DELETE /v1/blocks/{userId}
      */
     @DeleteMapping("/{userId}")
     public ResponseEntity<Void> unblockUser(@PathVariable Long userId) {
@@ -65,7 +65,7 @@ public class BlockController {
 
     /**
      * Get all users blocked by authenticated user
-     * GET /api/blocks/blocked-users
+     * GET /v1/blocks/blocked-users
      */
     @GetMapping("/blocked-users")
     public ResponseEntity<List<User>> getBlockedUsers() {
@@ -76,7 +76,7 @@ public class BlockController {
 
     /**
      * Get all users who have blocked the authenticated user
-     * GET /api/blocks/blockers
+     * GET /v1/blocks/blockers
      */
     @GetMapping("/blockers")
     public ResponseEntity<List<User>> getBlockers() {
@@ -87,7 +87,7 @@ public class BlockController {
 
     /**
      * Check if authenticated user has blocked a target user
-     * GET /api/blocks/{userId}/is-blocked
+     * GET /v1/blocks/{userId}/is-blocked
      */
     @GetMapping("/{userId}/is-blocked")
     public ResponseEntity<Boolean> isBlocked(@PathVariable Long userId) {
@@ -101,7 +101,7 @@ public class BlockController {
 
     /**
      * Check if two users are bidirectionally blocked
-     * GET /api/blocks/{userId}/is-bidirectionally-blocked
+     * GET /v1/blocks/{userId}/is-bidirectionally-blocked
      */
     @GetMapping("/{userId}/is-bidirectionally-blocked")
     public ResponseEntity<Boolean> isBidirectionallyBlocked(@PathVariable Long userId) {
@@ -115,7 +115,7 @@ public class BlockController {
 
     /**
      * Get count of users blocked by authenticated user
-     * GET /api/blocks/count/blocked
+     * GET /v1/blocks/count/blocked
      */
     @GetMapping("/count/blocked")
     public ResponseEntity<Long> getBlockedCount() {
@@ -126,7 +126,7 @@ public class BlockController {
 
     /**
      * Get count of users who have blocked the authenticated user
-     * GET /api/blocks/count/blockers
+     * GET /v1/blocks/count/blockers
      */
     @GetMapping("/count/blockers")
     public ResponseEntity<Long> getBlockerCount() {

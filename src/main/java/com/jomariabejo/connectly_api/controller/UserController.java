@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-@RequestMapping("/users")
+@RequestMapping("/v1/users")
 @RestController
 public class UserController {
     private final UserService userService;
@@ -241,7 +241,7 @@ public class UserController {
 
     /**
      * Update account privacy setting (make account private or public)
-     * PUT /users/settings/account-privacy
+     * PUT /v1/users/settings/account-privacy
      */
     @PutMapping("/settings/account-privacy")
     public ResponseEntity<UserSettings> updateAccountPrivacy(
@@ -254,7 +254,7 @@ public class UserController {
 
     /**
      * Update auto-approve followers setting
-     * PUT /users/settings/auto-approve
+     * PUT /v1/users/settings/auto-approve
      */
     @PutMapping("/settings/auto-approve")
     public ResponseEntity<UserSettings> updateAutoApproveFollowers(
@@ -266,7 +266,7 @@ public class UserController {
 
     /**
      * Update allow-following setting
-     * PUT /users/settings/allow-following
+     * PUT /v1/users/settings/allow-following
      */
     @PutMapping("/settings/allow-following")
     public ResponseEntity<UserSettings> updateAllowFollowing(
@@ -278,7 +278,7 @@ public class UserController {
 
     /**
      * Get user settings
-     * GET /users/settings
+     * GET /v1/users/settings
      */
     @GetMapping("/settings")
     public ResponseEntity<UserSettings> getUserSettings() {

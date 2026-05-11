@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/circles")
+@RequestMapping("/v1/circles")
 public class CircleController {
 
     private final CircleService circleService;
@@ -28,7 +28,7 @@ public class CircleController {
 
     /**
      * Create a new circle
-     * POST /api/circles
+     * POST /v1/circles
      */
     @PostMapping
     public ResponseEntity<CircleDto> createCircle(@RequestBody CircleDto request) {
@@ -44,7 +44,7 @@ public class CircleController {
 
     /**
      * Get all circles owned by authenticated user
-     * GET /api/circles
+     * GET /v1/circles
      */
     @GetMapping
     public ResponseEntity<List<CircleDto>> getCircles() {
@@ -56,7 +56,7 @@ public class CircleController {
 
     /**
      * Get a specific circle
-     * GET /api/circles/{circleId}
+     * GET /v1/circles/{circleId}
      */
     @GetMapping("/{circleId}")
     public ResponseEntity<CircleDto> getCircle(@PathVariable Long circleId) {
@@ -72,7 +72,7 @@ public class CircleController {
 
     /**
      * Update a circle's name and description
-     * PUT /api/circles/{circleId}
+     * PUT /v1/circles/{circleId}
      */
     @PutMapping("/{circleId}")
     public ResponseEntity<CircleDto> updateCircle(@PathVariable Long circleId, @RequestBody CircleDto request) {
@@ -89,7 +89,7 @@ public class CircleController {
 
     /**
      * Delete a circle
-     * DELETE /api/circles/{circleId}
+     * DELETE /v1/circles/{circleId}
      */
     @DeleteMapping("/{circleId}")
     public ResponseEntity<Void> deleteCircle(@PathVariable Long circleId) {
@@ -105,7 +105,7 @@ public class CircleController {
 
     /**
      * Add a member to a circle
-     * POST /api/circles/{circleId}/members/{memberId}
+     * POST /v1/circles/{circleId}/members/{memberId}
      */
     @PostMapping("/{circleId}/members/{memberId}")
     public ResponseEntity<Void> addMember(@PathVariable Long circleId, @PathVariable Long memberId) {
@@ -121,7 +121,7 @@ public class CircleController {
 
     /**
      * Remove a member from a circle
-     * DELETE /api/circles/{circleId}/members/{memberId}
+     * DELETE /v1/circles/{circleId}/members/{memberId}
      */
     @DeleteMapping("/{circleId}/members/{memberId}")
     public ResponseEntity<Void> removeMember(@PathVariable Long circleId, @PathVariable Long memberId) {
@@ -137,7 +137,7 @@ public class CircleController {
 
     /**
      * Get member count for a circle
-     * GET /api/circles/{circleId}/member-count
+     * GET /v1/circles/{circleId}/member-count
      */
     @GetMapping("/{circleId}/member-count")
     public ResponseEntity<Long> getMemberCount(@PathVariable Long circleId) {
@@ -155,7 +155,7 @@ public class CircleController {
 
     /**
      * Get all circles that authenticated user is a member of
-     * GET /api/circles/member-of
+     * GET /v1/circles/member-of
      */
     @GetMapping("/member-of")
     public ResponseEntity<List<CircleDto>> getCirclesMemberOf() {

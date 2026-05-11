@@ -25,7 +25,7 @@ A robust, scalable backend for a modern social platform — enabling users to po
 
 ## 📚 API Testing
 
-All API endpoints are available as `.http` files in the `http/` directory for easy testing with VS Code REST Client extension.
+All API endpoints are available as `.http` files in the `src/main/resources/docs/http-template/` directory for easy testing with VS Code REST Client extension.
 
 👉 Install [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension and click "Send Request" on any file.
 
@@ -96,39 +96,38 @@ The API will be running at `http://localhost:8080`
 ## 📡 API Endpoints
 
 ### Authentication
-- `POST /auth/registration` - Register new user
-- `POST /auth/login` - Login user
-- `GET /auth/verify?token=TOKEN` - Verify email
+- `POST /v1/auth/registration` - Register new user
+- `POST /v1/auth/login` - Login user
+- `GET /v1/auth/verify?token=TOKEN` - Verify email
 
 ### Users
-- `GET /api/users/me` - Get current user profile
-- `PUT /api/users/me` - Update profile
+- `GET /v1/users/me` - Get current user profile
+- `PUT /v1/users/me` - Update profile
 
 ### Posts
-- `POST /api/posts` - Create post
-- `GET /api/posts` - Get all posts
-- `GET /api/posts/{id}` - Get single post
-- `PUT /api/posts/{id}` - Update post
-- `DELETE /api/posts/{id}` - Delete post
-- `POST /api/posts/{id}/like` - Like post
-- `DELETE /api/posts/{id}/like` - Unlike post
+- `POST /v1/posts` - Create post
+- `GET /v1/posts` - Get all posts
+- `GET /v1/posts/{id}` - Get single post
+- `PUT /v1/posts/{id}` - Update post
+- `DELETE /v1/posts/{id}` - Delete post
+- `POST /v1/posts/{id}/likes/toggle` - Toggle post like
 
 ### Comments
-- `POST /api/comments` - Create comment
-- `GET /api/comments/post/{postId}` - Get post comments
-- `PUT /api/comments/{id}` - Update comment
-- `DELETE /api/comments/{id}` - Delete comment
+- `POST /v1/posts/{postId}/comments` - Create comment
+- `GET /v1/posts/{postId}/comments` - Get post comments
+- `PUT /v1/posts/{postId}/comments/{commentId}` - Update comment
+- `DELETE /v1/posts/{postId}/comments/{commentId}` - Delete comment
 
 ---
 
 ## 🧪 Testing API Requests
 
 1. **Install REST Client** extension in VS Code
-2. Open any file in `http/` folder
+2. Open any file in `src/main/resources/docs/http-template/`
 3. Click "Send Request" button above the request
 4. View response in the sidebar
 
-Example: `http/auth/register.http`
+Example: `src/main/resources/docs/http-template/auth/register.http`
 
 ---
 

@@ -33,7 +33,7 @@ import java.util.Calendar;
 import java.util.Locale;
 import java.util.Optional;
 
-@RequestMapping("/auth")
+@RequestMapping("/v1/auth")
 @RestController
 public class AuthenticationController {
     private static final Logger log = LoggerFactory.getLogger(AuthenticationController.class);

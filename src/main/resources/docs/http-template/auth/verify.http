@@ -1,2 +1,2 @@
 ### Verify Email Token
-GET http://localhost:8080/auth/verify?token=
+GET http://localhost:8080/v1/auth/verify?token=

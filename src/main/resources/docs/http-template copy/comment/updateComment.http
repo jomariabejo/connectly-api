@@ -1,5 +1,5 @@
 ### Update Comment
-PUT http://localhost:8080/api/comments/1
+PUT http://localhost:8080/v1/posts/1/comments/1
 Authorization: Bearer TOKEN_HERE
 Content-Type: application/json
 

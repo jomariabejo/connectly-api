@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/posts")
+@RequestMapping("/v1/posts")
 public class PostLikeController {
 
     private final PostLikeService postLikeService;

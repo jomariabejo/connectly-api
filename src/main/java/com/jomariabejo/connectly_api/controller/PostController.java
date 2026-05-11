@@ -20,7 +20,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController
-@RequestMapping("/posts")
+@RequestMapping("/v1/posts")
 public class PostController {
 
     private final PostService postService;

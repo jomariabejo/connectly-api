@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/v1")
 public class FollowController {
 
     private final FollowService followService;
@@ -31,7 +31,7 @@ public class FollowController {
 
     /**
      * Follow a user
-     * POST /api/users/{userId}/follow
+     * POST /v1/users/{userId}/follow
      */
     @PostMapping("/users/{userId}/follow")
     public ResponseEntity<FollowResponseDto> followUser(@PathVariable Long userId) {
@@ -56,7 +56,7 @@ public class FollowController {
 
     /**
      * Unfollow a user
-     * DELETE /api/users/{userId}/follow
+     * DELETE /v1/users/{userId}/follow
      */
     @DeleteMapping("/users/{userId}/follow")
     public ResponseEntity<Void> unfollowUser(@PathVariable Long userId) {
@@ -74,7 +74,7 @@ public class FollowController {
 
     /**
      * Get followers of a user
-     * GET /api/users/{userId}/followers?page=0&size=10
+     * GET /v1/users/{userId}/followers?page=0&size=10
      */
     @GetMapping("/users/{userId}/followers")
     public ResponseEntity<Page<FollowResponseDto>> getFollowers(
@@ -102,7 +102,7 @@ public class FollowController {
 
     /**
      * Get users that a user is following
-     * GET /api/users/{userId}/following?page=0&size=10
+     * GET /v1/users/{userId}/following?page=0&size=10
      */
     @GetMapping("/users/{userId}/following")
     public ResponseEntity<Page<FollowResponseDto>> getFollowing(
@@ -130,7 +130,7 @@ public class FollowController {
 
     /**
      * Get pending follow requests for the authenticated user
-     * GET /api/follow-requests?page=0&size=10
+     * GET /v1/follow-requests?page=0&size=10
      */
     @GetMapping("/follow-requests")
     public ResponseEntity<Page<FollowResponseDto>> getPendingRequests(
@@ -156,7 +156,7 @@ public class FollowController {
 
     /**
      * Approve a follow request
-     * POST /api/follow-requests/{followId}/approve
+     * POST /v1/follow-requests/{followId}/approve
      */
     @PostMapping("/follow-requests/{followId}/approve")
     public ResponseEntity<FollowResponseDto> approveFollowRequest(@PathVariable Long followId) {
@@ -186,7 +186,7 @@ public class FollowController {
 
     /**
      * Reject a follow request
-     * POST /api/follow-requests/{followId}/reject
+     * POST /v1/follow-requests/{followId}/reject
      */
     @PostMapping("/follow-requests/{followId}/reject")
     public ResponseEntity<Void> rejectFollowRequest(@PathVariable Long followId) {
@@ -209,7 +209,7 @@ public class FollowController {
 
     /**
      * Get follower count for a user
-     * GET /api/users/{userId}/follower-count
+     * GET /v1/users/{userId}/follower-count
      */
     @GetMapping("/users/{userId}/follower-count")
     public ResponseEntity<Long> getFollowerCount(@PathVariable Long userId) {
@@ -222,7 +222,7 @@ public class FollowController {
 
     /**
      * Get following count for a user
-     * GET /api/users/{userId}/following-count
+     * GET /v1/users/{userId}/following-count
      */
     @GetMapping("/users/{userId}/following-count")
     public ResponseEntity<Long> getFollowingCount(@PathVariable Long userId) {
@@ -235,7 +235,7 @@ public class FollowController {
 
     /**
      * Check if authenticated user is following a target user
-     * GET /api/users/{userId}/is-following
+     * GET /v1/users/{userId}/is-following
      */
     @GetMapping("/users/{userId}/is-following")
     public ResponseEntity<Boolean> isFollowing(@PathVariable Long userId) {

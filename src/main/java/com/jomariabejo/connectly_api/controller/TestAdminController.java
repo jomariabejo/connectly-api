@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@RequestMapping("/admin")
+@RequestMapping("/v1/admin")
 @RestController
 public class TestAdminController {
 
@@ -15,4 +15,3 @@ public class TestAdminController {
         return "admin/dashboard";
     }
 }
-
