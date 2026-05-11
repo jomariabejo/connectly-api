@@ -3,6 +3,9 @@ package com.jomariabejo.connectly_api.model;
 public enum PrivacyLevel {
     PUBLIC("public"),
     FOLLOWERS_ONLY("followers_only"),
+    MUTUALS_ONLY("mutuals_only"),
+    FRIENDS_OF_FRIENDS("friends_of_friends"),
+    CIRCLES("circles"),
     PRIVATE("private");
 
     private final String value;

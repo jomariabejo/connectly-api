@@ -3,7 +3,10 @@ package com.jomariabejo.connectly_api.util;
 import com.jomariabejo.connectly_api.model.PrivacyLevel;
 import com.jomariabejo.connectly_api.model.Post;
 import com.jomariabejo.connectly_api.model.User;
+import com.jomariabejo.connectly_api.repository.BlockRepository;
+import com.jomariabejo.connectly_api.repository.CircleRepository;
 import com.jomariabejo.connectly_api.repository.FollowRepository;
+import com.jomariabejo.connectly_api.service.FriendsOfFriendsService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -17,9 +20,18 @@ import org.springframework.stereotype.Component;
 public class PrivacyEngine {
 
     private final FollowRepository followRepository;
+    private final FriendsOfFriendsService friendsOfFriendsService;
+    private final BlockRepository blockRepository;
+    private final CircleRepository circleRepository;
 
-    public PrivacyEngine(FollowRepository followRepository) {
+    public PrivacyEngine(FollowRepository followRepository, 
+                        FriendsOfFriendsService friendsOfFriendsService,
+                        BlockRepository blockRepository,
+                        CircleRepository circleRepository) {
         this.followRepository = followRepository;
+        this.friendsOfFriendsService = friendsOfFriendsService;
+        this.blockRepository = blockRepository;
+        this.circleRepository = circleRepository;
     }
 
     /**
@@ -39,15 +51,19 @@ public class PrivacyEngine {
             return true;
         }
 
+        // Check if viewer is blocked by post owner or has blocked post owner (bidirectional)
+        if (blockRepository.isBidirectionallyBlocked(viewer, post.getCreatedBy())) {
+            return false;
+        }
+
         PrivacyLevel privacy = post.getPrivacy();
 
         return switch (privacy) {
             case PUBLIC -> true;
             case FOLLOWERS_ONLY -> isFollowing(viewer, post.getCreatedBy());
-            case PRIVATE -> false;
-            // Placeholder for Phase 2
-            // case MUTUALS_ONLY -> isMutual(viewer, post.getCreatedBy());
-            // case FRIENDS_OF_FRIENDS -> isFriendOfFriend(viewer, post.getCreatedBy());
+            case MUTUALS_ONLY -> isMutual(viewer, post.getCreatedBy());
+            case FRIENDS_OF_FRIENDS -> friendsOfFriendsService.isFriendOfFriend(viewer, post.getCreatedBy());
+            case CIRCLES -> isInVisibleCircle(viewer, post);
             default -> false;
         };
     }
@@ -77,6 +93,22 @@ public class PrivacyEngine {
     }
 
     /**
+     * Determines if a user can interact with another user (comment, like, etc.).
+     * Enforces blocking relationships.
+     *
+     * @param actor  the user attempting interaction
+     * @param target the user being interacted with
+     * @return true if actor can interact, false if blocked
+     */
+    public boolean canInteract(User actor, User target) {
+        if (actor == null || target == null || actor.getId().equals(target.getId())) {
+            return false;
+        }
+        // Cannot interact if blocked bidirectionally
+        return !blockRepository.isBidirectionallyBlocked(actor, target);
+    }
+
+    /**
      * Checks if follower is following the target user (approved follow only).
      *
      * @param follower the user checking follow status
@@ -92,7 +124,7 @@ public class PrivacyEngine {
 
     /**
      * Checks if two users are mutually following each other (both approved).
-     * Used for MUTUALS_ONLY privacy level in Phase 2.
+     * Used for MUTUALS_ONLY privacy level.
      *
      * @param userA first user
      * @param userB second user
@@ -103,6 +135,23 @@ public class PrivacyEngine {
             return false;
         }
         return followRepository.areMutual(userA, userB);
+    }
+
+    /**
+     * Checks if a user is in one of a post's visible circles.
+     * Used for CIRCLES privacy level.
+     *
+     * @param user the user
+     * @param post the post
+     * @return true if user is a member of any circle the post is visible to
+     */
+    private boolean isInVisibleCircle(User user, Post post) {
+        if (post.getVisibleToCircles() == null || post.getVisibleToCircles().isEmpty()) {
+            return false;
+        }
+
+        return post.getVisibleToCircles().stream()
+            .anyMatch(circle -> circleRepository.isMemberOfCircle(circle.getId(), user));
     }
 
     /**
