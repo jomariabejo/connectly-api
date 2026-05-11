@@ -2,9 +2,11 @@ package com.jomariabejo.connectly_api.service;
 
 import com.jomariabejo.connectly_api.dto.RegisterUserDto;
 import com.jomariabejo.connectly_api.dto.LoginUserDto;
+import com.jomariabejo.connectly_api.exception.EmailAlreadyInUseException;
 import com.jomariabejo.connectly_api.exception.UnauthorizedAccessException;
 import com.jomariabejo.connectly_api.exception.InvalidPasswordResetTokenException;
 import com.jomariabejo.connectly_api.exception.PasswordResetTokenExpiredException;
+import com.jomariabejo.connectly_api.exception.UserAlreadyExistsException;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.model.PasswordResetToken;
 import com.jomariabejo.connectly_api.repository.UserRepository;
@@ -70,8 +72,12 @@ public class AuthenticationService {
 
     public User signup(RegisterUserDto registerUserDto) {
         // Check if user already exists
-        if (userRepository.existsByEmail(registerUserDto.getEmail())) {
-            throw new RuntimeException("Email already in use");
+        if (userRepository.existsAnyByUsername(registerUserDto.getUsername())) {
+            throw new UserAlreadyExistsException("Username is already taken");
+        }
+
+        if (userRepository.existsAnyByEmail(registerUserDto.getEmail())) {
+            throw new EmailAlreadyInUseException("Email is already registered");
         }
 
         User user = new User();
