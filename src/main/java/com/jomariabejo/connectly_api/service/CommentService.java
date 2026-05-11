@@ -14,6 +14,7 @@ import com.jomariabejo.connectly_api.model.Post;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.repository.CommentRepository;
 import com.jomariabejo.connectly_api.repository.PostRepository;
+import com.jomariabejo.connectly_api.util.PrivacyEngine;
 import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,23 +31,31 @@ public class CommentService {
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final CommentMapper commentMapper;
+    private final PrivacyEngine privacyEngine;
 
     public CommentService(
             CommentRepository commentRepository,
             CommentMapper commentMapper,
             PostService postService,
-            PostRepository postRepository
+            PostRepository postRepository,
+            PrivacyEngine privacyEngine
     ) {
         this.commentRepository = commentRepository;
         this.commentMapper = commentMapper;
         this.postService = postService;
         this.postRepository = postRepository;
+        this.privacyEngine = privacyEngine;
     }
 
     @Transactional
     public CreateCommentDto addCommentToPost(Long postId, CreateCommentDto createCommentDto, User authenticatedUser) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new PostNotFoundException(postId));
+
+        // Check if user can comment on this post using PrivacyEngine
+        if (!privacyEngine.canCommentOnPost(authenticatedUser, post)) {
+            throw new UnauthorizedAccessException("User is not authorized to comment on this post");
+        }
 
         Comment comment = commentMapper.commentDtoTocomment(createCommentDto);
         if (comment == null) {

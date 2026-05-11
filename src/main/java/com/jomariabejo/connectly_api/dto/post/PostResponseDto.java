@@ -34,7 +34,7 @@ public class PostResponseDto {
         this.content = post.getContent();
         this.postType = post.getPostType();
         this.metadata = post.getMetadata();
-        this.privacy = post.getPrivacy();
+        this.privacy = post.getPrivacy() != null ? post.getPrivacy().getValue() : "public";
         this.createdAt = post.getCreatedAt();
         this.createdBy = post.getCreatedBy();
     }

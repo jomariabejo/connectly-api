@@ -1,3 +1,3 @@
 ### Get Comments By Post
-GET http://localhost:8080/api/comments/post/1
+GET http://localhost:8080/v1/posts/1/comments
 Authorization: Bearer TOKEN_HERE

@@ -1,5 +1,5 @@
 ### Create Post
-POST http://localhost:8080/api/posts
+POST http://localhost:8080/v1/posts
 Authorization: Bearer TOKEN_HERE
 Content-Type: application/json
 

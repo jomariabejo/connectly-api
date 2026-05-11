@@ -17,7 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/posts/{postId}/comments")
+@RequestMapping("/v1/posts/{postId}/comments")
 public class CommentController {
 
     private static final Logger log = LoggerFactory.getLogger(CommentController.class);

@@ -20,7 +20,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController
-@RequestMapping("/posts")
+@RequestMapping("/v1/posts")
 public class PostController {
 
     private final PostService postService;
@@ -147,6 +147,16 @@ public class PostController {
         }
 
         return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/feed")
+    public ResponseEntity<PaginationDto<PostResponseDto>> getHomeFeed(
+            @PageableDefault(size = 10, page = 0, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+
+        User currentUser = authenticationService.getAuthenticatedUser();
+        PaginationDto<PostResponseDto> feed = postService.getHomeFeed(currentUser.getId(), pageable);
+
+        return ResponseEntity.ok(feed);
     }
 
     private boolean hasFilters(PostFilterDto filterDto) {

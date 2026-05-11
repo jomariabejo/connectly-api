@@ -39,12 +39,20 @@ public class RateLimitingService {
         AttemptTracker tracker = attemptTrackers.get(key);
 
         // Remove old attempts outside the window
+        int beforeSize = tracker.attempts.size();
         tracker.attempts.removeIf(timestamp -> timestamp < windowStart);
+        int afterSize = tracker.attempts.size();
+        
+        if (beforeSize != afterSize) {
+            logger.debug("RATE_LIMIT_CLEANUP | action={} | email={} | removed_expired_attempts={}", 
+                        action, email, beforeSize - afterSize);
+        }
 
         // Add new attempt
         tracker.attempts.add(now);
 
-        logger.debug("Recorded attempt for {}: {} attempts in window", key, tracker.attempts.size());
+        logger.debug("RATE_LIMIT_RECORD | action={} | email={} | attempts_in_window={} | max_allowed={}", 
+                     action, email, tracker.attempts.size(), maxForgotPasswordAttempts);
     }
 
     /**
@@ -58,6 +66,8 @@ public class RateLimitingService {
         AttemptTracker tracker = attemptTrackers.get(key);
 
         if (tracker == null) {
+            logger.trace("RATE_LIMIT_CHECK | action={} | email={} | no_prior_attempts | status=ALLOWED", 
+                        action, email);
             return false;
         }
 
@@ -68,8 +78,13 @@ public class RateLimitingService {
 
         boolean isLimited = attemptCount >= maxForgotPasswordAttempts;
 
+        String status = isLimited ? "LIMITED" : "ALLOWED";
+        logger.info("RATE_LIMIT_CHECK | action={} | email={} | attempts_in_window={} | max_allowed={} | status={}", 
+                    action, email, attemptCount, maxForgotPasswordAttempts, status);
+
         if (isLimited) {
-            logger.warn("Rate limit exceeded for {}: {} attempts", key, attemptCount);
+            logger.warn("RATE_LIMIT_EXCEEDED | action={} | email={} | attempts={} | window_minutes={}", 
+                       action, email, attemptCount, attemptWindowMinutes);
         }
 
         return isLimited;
@@ -80,8 +95,12 @@ public class RateLimitingService {
      */
     @Scheduled(fixedRateString = "${security.password.reset.attempt-cache-clear-interval:3660000}")
     public void clearAttemptTrackers() {
-        logger.info("Clearing all rate limit attempt trackers");
+        int trackerCount = attemptTrackers.size();
+        logger.info("RATE_LIMIT_CACHE_CLEAR_START | total_trackers_to_clear={}", trackerCount);
+        
         attemptTrackers.clear();
+        
+        logger.info("RATE_LIMIT_CACHE_CLEAR_COMPLETE | trackers_cleared={}", trackerCount);
     }
 
     /**

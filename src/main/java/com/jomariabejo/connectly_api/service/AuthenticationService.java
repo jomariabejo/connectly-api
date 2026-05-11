@@ -92,7 +92,7 @@ public class AuthenticationService {
 
         verificationTokenService.createVerificationToken(user,token);
         // Send verification email
-        String verificationLink = "http://localhost:8080/auth/verify?token=" + token;
+        String verificationLink = "http://localhost:8080/v1/auth/verify?token=" + token;
         emailService.sendVerificationEmail(user.getEmail(), verificationLink);
 
 

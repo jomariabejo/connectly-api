@@ -65,4 +65,13 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             @Param("postType") String postType,
             @Param("privacy") String privacy,
             Pageable pageable);
+
+    // Home feed: posts from users the authenticated user follows or their own posts
+    // Filters by privacy level and user active status
+    @Query("SELECT p FROM Post p WHERE " +
+            "p.createdBy.deletedAt IS NULL AND " +
+            "(p.createdBy.id = :userId OR " +  // User's own posts
+            "EXISTS (SELECT f FROM Follow f WHERE f.follower.id = :userId AND f.following = p.createdBy AND f.approved = true)) " +
+            "ORDER BY p.createdAt DESC")
+    Page<Post> findHomeFeed(@Param("userId") Long userId, Pageable pageable);
 }

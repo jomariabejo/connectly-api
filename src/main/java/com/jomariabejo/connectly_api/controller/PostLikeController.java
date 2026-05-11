@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/{postId}")
+@RequestMapping("/v1/posts")
 public class PostLikeController {
 
     private final PostLikeService postLikeService;
@@ -25,23 +25,28 @@ public class PostLikeController {
     }
 
     @PostMapping("/{postId}/likes/toggle")
-    public ResponseEntity<GenericResponse<Boolean>> toggleLike(@PathVariable Long postId) {
+    public ResponseEntity<GenericResponse<Boolean>> toggleLike(
+            @PathVariable Long postId
+    ) {
 
         User currentUser = authenticationService.getAuthenticatedUser();
 
-        boolean isNowLiked = postLikeService.togglePostLike(postId, currentUser);
+        boolean isNowLiked =
+                postLikeService.togglePostLike(postId, currentUser);
 
         String message = isNowLiked
                 ? "Post liked successfully."
                 : "Post unliked successfully.";
 
-        return ResponseEntity.ok(new GenericResponse<>(message, isNowLiked));
+        return ResponseEntity.ok(
+                new GenericResponse<>(message, isNowLiked)
+        );
     }
 
     /**
      * Get like count for a post.
      */
-    @GetMapping("/likes/count")
+    @GetMapping("/{postId}/likes/count")
     public ResponseEntity<GenericResponse<Long>> countLikes(@PathVariable Long postId) {
         long count = postLikeService.countLikesByPost(postId);
         return ResponseEntity.ok(new GenericResponse<>("Total likes retrieved.", count));

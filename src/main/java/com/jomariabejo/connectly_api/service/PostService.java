@@ -8,8 +8,10 @@ import com.jomariabejo.connectly_api.dto.PostFilterDto;
 import com.jomariabejo.connectly_api.exception.UnauthorizedAccessException;
 import com.jomariabejo.connectly_api.mapper.PostMapper;
 import com.jomariabejo.connectly_api.model.Post;
+import com.jomariabejo.connectly_api.model.PrivacyLevel;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.repository.PostRepository;
+import com.jomariabejo.connectly_api.util.PrivacyEngine;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -24,10 +26,12 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final PostMapper postMapper;
+    private final PrivacyEngine privacyEngine;
 
-    public PostService(PostRepository postRepository, PostMapper postMapper) {
+    public PostService(PostRepository postRepository, PostMapper postMapper, PrivacyEngine privacyEngine) {
         this.postRepository = postRepository;
         this.postMapper = postMapper;
+        this.privacyEngine = privacyEngine;
     }
 //    https://www.reddit.com/r/SpringBoot/comments/efwu26/when_to_use_transactional_in_springboot_and_when/
     @Transactional
@@ -61,13 +65,12 @@ public class PostService {
 
         Post post = optionalPost.get();  // Safely retrieve the post
 
-
-        // Check if the authenticated user is the creator of the post
-        if (authenticatedUser.equals(post.getCreatedBy())) {
-            return postMapper.postToPostResponseDto(post);
-        } else {
-            throw new RuntimeException("User " + authenticatedUser.getUsername() + " is not authorized to view this post");
+        // Check if the authenticated user can view this post using PrivacyEngine
+        if (!privacyEngine.canViewPost(authenticatedUser, post)) {
+            throw new UnauthorizedAccessException("User " + authenticatedUser.getUsername() + " is not authorized to view this post");
         }
+
+        return postMapper.postToPostResponseDto(post);
     }
 
     public List<PostResponseDto> getPostsByUser(Long userId) {
@@ -90,7 +93,11 @@ public class PostService {
             existingPost.setContent(updatePostDto.getContent());
             existingPost.setMetadata(updatePostDto.getMetadata());
             existingPost.setPostType(updatePostDto.getPostType());
-            existingPost.setPrivacy(updatePostDto.getPrivacy());
+            
+            // Convert privacy string to enum
+            if (updatePostDto.getPrivacy() != null) {
+                existingPost.setPrivacy(PrivacyLevel.fromString(updatePostDto.getPrivacy()));
+            }
 
             // Save the updated post back to the repository
             Post updatedPost = postRepository.save(existingPost);
@@ -153,6 +160,19 @@ public class PostService {
                 pageable
         );
         return mapPageToDto(postsPage);
+    }
+
+    /**
+     * Get home feed for authenticated user: posts from followed users and own posts.
+     * Privacy levels are respected - only PUBLIC and FOLLOWERS_ONLY posts are shown.
+     *
+     * @param userId  the user requesting the feed
+     * @param pageable pagination info
+     * @return paginated list of feed posts
+     */
+    public PaginationDto<PostResponseDto> getHomeFeed(Long userId, Pageable pageable) {
+        Page<Post> feedPage = postRepository.findHomeFeed(userId, pageable);
+        return mapPageToDto(feedPage);
     }
 
     private PaginationDto<PostResponseDto> mapPageToDto(Page<Post> page) {
