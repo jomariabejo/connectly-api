@@ -125,6 +125,12 @@ The API will be running at `http://localhost:8080`
 - `PATCH /v1/orders/{id}/status` - Update order status
 - `GET /v1/orders/{id}/status-history` - Get order status history
 
+### Payments
+- `POST /v1/payments/checkout` - Create provider checkout session
+- `GET /v1/payments/{paymentId}` - Get payment details
+- `GET /v1/orders/{orderId}/payments` - Get payments for an order
+- `POST /v1/payments/webhooks/{provider}` - Receive provider webhook callbacks
+
 ---
 
 ## 🧪 Testing API Requests

@@ -4,7 +4,7 @@
 -- Create orders table
 CREATE TABLE orders (
     id SERIAL PRIMARY KEY,
-    customer_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    customer_id BIGINT NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
     total_amount DECIMAL(15,2) NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     marketplace_source VARCHAR(50) NOT NULL,
@@ -29,7 +29,7 @@ CREATE TABLE order_status_history (
     old_status VARCHAR(20),
     new_status VARCHAR(20) NOT NULL,
     changed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    changed_by BIGINT REFERENCES users(id) ON DELETE SET NULL
+    changed_by BIGINT REFERENCES app_user(id) ON DELETE SET NULL
 );
 
 -- Create indexes for query performance (CRITICAL for filtering/sorting)

@@ -49,6 +49,26 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.BAD_REQUEST, "Invalid filter parameters", ex);
     }
 
+    @ExceptionHandler(com.jomariabejo.connectly_api.payments_api.exception.PaymentNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentNotFoundException(com.jomariabejo.connectly_api.payments_api.exception.PaymentNotFoundException ex) {
+        return buildErrorResponse(HttpStatus.NOT_FOUND, "Payment not found", ex);
+    }
+
+    @ExceptionHandler(com.jomariabejo.connectly_api.payments_api.exception.InvalidPaymentRequestException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidPaymentRequestException(com.jomariabejo.connectly_api.payments_api.exception.InvalidPaymentRequestException ex) {
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "Invalid payment request", ex);
+    }
+
+    @ExceptionHandler(com.jomariabejo.connectly_api.payments_api.exception.PaymentWebhookVerificationException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentWebhookVerificationException(com.jomariabejo.connectly_api.payments_api.exception.PaymentWebhookVerificationException ex) {
+        return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Invalid payment webhook signature", ex);
+    }
+
+    @ExceptionHandler(com.jomariabejo.connectly_api.payments_api.exception.PaymentGatewayException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentGatewayException(com.jomariabejo.connectly_api.payments_api.exception.PaymentGatewayException ex) {
+        return buildErrorResponse(HttpStatus.BAD_GATEWAY, "Payment gateway error", ex);
+    }
+
     @ExceptionHandler(UnauthorizedAccessException.class)
     public ResponseEntity<ErrorResponse> handleUnauthorizedAccessException(UnauthorizedAccessException ex) {
         return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Unauthorized access", ex);

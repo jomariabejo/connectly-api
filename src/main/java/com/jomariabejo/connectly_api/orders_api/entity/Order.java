@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import com.jomariabejo.connectly_api.model.User;
+import com.jomariabejo.connectly_api.payments_api.entity.PaymentStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -39,6 +40,11 @@ public class Order {
 
     @Column(nullable = false, length = 50)
     private String marketplaceSource;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    @Builder.Default
+    private PaymentStatus paymentStatus = PaymentStatus.PENDING;
 
     @Column(nullable = false, updatable = false)
     @Builder.Default

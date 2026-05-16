@@ -1,0 +1,13 @@
+### Create Payment Checkout
+POST http://localhost:8080/v1/payments/checkout
+Authorization: Bearer TOKEN_HERE
+Content-Type: application/json
+
+{
+  "orderId": 1,
+  "provider": "PAYMONGO",
+  "currency": "PHP",
+  "successUrl": "http://localhost:3000/payment/success",
+  "cancelUrl": "http://localhost:3000/payment/cancel",
+  "idempotencyKey": "checkout-order-1-paymongo"
+}
