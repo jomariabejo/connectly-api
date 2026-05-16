@@ -4,10 +4,14 @@ import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.orders_api.dto.CreateOrderDto;
 import com.jomariabejo.connectly_api.orders_api.dto.OrderFilterDto;
 import com.jomariabejo.connectly_api.orders_api.dto.OrderListItemDto;
+import com.jomariabejo.connectly_api.orders_api.dto.OrderResponseDto;
+import com.jomariabejo.connectly_api.orders_api.dto.OrderStatusHistoryDto;
 import com.jomariabejo.connectly_api.orders_api.dto.PaginatedResponse;
+import com.jomariabejo.connectly_api.orders_api.dto.UpdateOrderStatusDto;
 import com.jomariabejo.connectly_api.orders_api.entity.Order;
 import com.jomariabejo.connectly_api.orders_api.entity.OrderStatus;
 import com.jomariabejo.connectly_api.orders_api.exception.InvalidFilterException;
+import com.jomariabejo.connectly_api.orders_api.exception.OrderNotFoundException;
 import com.jomariabejo.connectly_api.orders_api.mapper.OrderMapper;
 import com.jomariabejo.connectly_api.orders_api.repository.OrderRepository;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -26,11 +30,14 @@ import org.springframework.data.jpa.domain.Specification;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -204,6 +211,101 @@ class OrderServiceTest {
         assertThat(query.pageable.getSort().getOrderFor("totalAmount").getDirection()).isEqualTo(Sort.Direction.ASC);
         assertThat(response.getData()).containsExactly(itemDto);
         assertSpecificationUsesCustomerId(query.specification, 77L);
+    }
+
+    @Test
+    void updateOrderStatusThrowsWhenOrderMissing() {
+        when(orderRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> orderService.updateOrderStatus(99L, UpdateOrderStatusDto.builder()
+                .newStatus(OrderStatus.PROCESSING)
+                .build(), user))
+                .isInstanceOf(OrderNotFoundException.class)
+                .hasMessage("Order with ID 99 not found");
+
+        verifyNoInteractions(orderStatusService, orderMapper, orderItemService);
+    }
+
+    @Test
+    void updateOrderStatusRejectsInvalidTransitionWithoutSaving() {
+        Order order = orderFor(user);
+        order.setStatus(OrderStatus.DELIVERED);
+        when(orderRepository.findById(99L)).thenReturn(Optional.of(order));
+        when(orderStatusService.validateStatusTransition(OrderStatus.DELIVERED, OrderStatus.CANCELLED))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> orderService.updateOrderStatus(99L, UpdateOrderStatusDto.builder()
+                .newStatus(OrderStatus.CANCELLED)
+                .build(), user))
+                .isInstanceOf(InvalidFilterException.class)
+                .hasMessage("Invalid status transition from DELIVERED to CANCELLED");
+
+        verify(orderRepository, never()).save(any(Order.class));
+        verifyNoInteractions(orderMapper, orderItemService);
+    }
+
+    @Test
+    void updateOrderStatusRecordsHistoryForValidTransition() {
+        Order order = orderFor(user);
+        order.setStatus(OrderStatus.PENDING);
+        OrderResponseDto responseDto = OrderResponseDto.builder()
+                .id(99L)
+                .customerId(10L)
+                .status(OrderStatus.PROCESSING)
+                .build();
+
+        when(orderRepository.findById(99L)).thenReturn(Optional.of(order));
+        when(orderStatusService.validateStatusTransition(OrderStatus.PENDING, OrderStatus.PROCESSING))
+                .thenReturn(true);
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.findByIdWithDetails(99L)).thenReturn(Optional.of(order));
+        when(orderMapper.toResponseDto(order)).thenReturn(responseDto);
+
+        OrderResponseDto response = orderService.updateOrderStatus(99L, UpdateOrderStatusDto.builder()
+                .newStatus(OrderStatus.PROCESSING)
+                .build(), user);
+
+        ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
+        verify(orderRepository).save(orderCaptor.capture());
+        assertThat(orderCaptor.getValue().getStatus()).isEqualTo(OrderStatus.PROCESSING);
+        verify(orderStatusService).recordStatusChange(order, OrderStatus.PENDING, OrderStatus.PROCESSING, user);
+        assertThat(response).isSameAs(responseDto);
+    }
+
+    @Test
+    void getStatusHistoryThrowsWhenOrderMissing() {
+        when(orderRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> orderService.getStatusHistory(99L, 0, 50))
+                .isInstanceOf(OrderNotFoundException.class)
+                .hasMessage("Order with ID 99 not found");
+
+        verifyNoInteractions(orderStatusService, orderMapper, orderItemService);
+    }
+
+    @Test
+    void getStatusHistoryLimitsPageSizeToMaximumAndSortsDescending() {
+        Order order = orderFor(user);
+        OrderStatusHistoryDto historyDto = OrderStatusHistoryDto.builder()
+                .id(1L)
+                .oldStatus(OrderStatus.PENDING)
+                .newStatus(OrderStatus.PROCESSING)
+                .changedById(10L)
+                .changedByUsername("maria")
+                .build();
+        when(orderRepository.findById(99L)).thenReturn(Optional.of(order));
+        when(orderStatusService.getStatusHistory(eq(99L), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(historyDto)));
+
+        PaginatedResponse<OrderStatusHistoryDto> response = orderService.getStatusHistory(99L, 2, 500);
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(orderStatusService).getStatusHistory(eq(99L), pageableCaptor.capture());
+        Pageable pageable = pageableCaptor.getValue();
+        assertThat(pageable.getPageNumber()).isEqualTo(2);
+        assertThat(pageable.getPageSize()).isEqualTo(100);
+        assertThat(pageable.getSort().getOrderFor("changedAt").getDirection()).isEqualTo(Sort.Direction.DESC);
+        assertThat(response.getData()).containsExactly(historyDto);
     }
 
     private OrderFilterDto validFilter() {
