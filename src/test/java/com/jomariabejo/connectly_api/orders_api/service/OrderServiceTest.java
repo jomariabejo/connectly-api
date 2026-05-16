@@ -3,6 +3,7 @@ package com.jomariabejo.connectly_api.orders_api.service;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.orders_api.dto.CreateOrderDto;
 import com.jomariabejo.connectly_api.orders_api.dto.OrderFilterDto;
+import com.jomariabejo.connectly_api.orders_api.dto.OrderItemDto;
 import com.jomariabejo.connectly_api.orders_api.dto.OrderListItemDto;
 import com.jomariabejo.connectly_api.orders_api.dto.OrderResponseDto;
 import com.jomariabejo.connectly_api.orders_api.dto.OrderStatusHistoryDto;
@@ -16,6 +17,7 @@ import com.jomariabejo.connectly_api.orders_api.mapper.OrderMapper;
 import com.jomariabejo.connectly_api.orders_api.repository.OrderRepository;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
@@ -28,6 +30,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -93,6 +97,77 @@ class OrderServiceTest {
                 .hasMessage("Order must contain at least one item");
 
         verifyNoInteractions(orderRepository, orderItemService, orderStatusService, orderMapper);
+    }
+
+    @Test
+    void createOrderPersistsPendingOrderAndRecordsInitialStatus() {
+        CreateOrderDto request = validCreateOrder();
+        Order savedOrder = orderFor(user);
+        OrderResponseDto responseDto = OrderResponseDto.builder()
+                .id(99L)
+                .customerId(10L)
+                .status(OrderStatus.PENDING)
+                .build();
+
+        when(orderRepository.save(any(Order.class))).thenReturn(savedOrder);
+        when(orderRepository.findByIdWithDetails(99L)).thenReturn(Optional.of(savedOrder));
+        when(orderMapper.toResponseDto(savedOrder)).thenReturn(responseDto);
+
+        OrderResponseDto response = orderService.createOrder(request, user);
+
+        ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
+        verify(orderRepository).save(orderCaptor.capture());
+        Order persistedOrder = orderCaptor.getValue();
+        assertThat(persistedOrder.getCustomer()).isSameAs(user);
+        assertThat(persistedOrder.getTotalAmount()).isEqualByComparingTo("49.98");
+        assertThat(persistedOrder.getStatus()).isEqualTo(OrderStatus.PENDING);
+        assertThat(persistedOrder.getMarketplaceSource()).isEqualTo("amazon");
+        verify(orderItemService).createOrderItems(savedOrder, request.getItems());
+        verify(orderStatusService).recordStatusChange(savedOrder, null, OrderStatus.PENDING, user);
+        assertThat(response).isSameAs(responseDto);
+    }
+
+    @Test
+    void createOrderThrowsWhenSavedOrderCannotBeFetchedWithDetails() {
+        CreateOrderDto request = validCreateOrder();
+        Order savedOrder = orderFor(user);
+        when(orderRepository.save(any(Order.class))).thenReturn(savedOrder);
+        when(orderRepository.findByIdWithDetails(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> orderService.createOrder(request, user))
+                .isInstanceOf(OrderNotFoundException.class)
+                .hasMessage("Order with ID 99 not found");
+
+        verify(orderItemService).createOrderItems(savedOrder, request.getItems());
+        verify(orderStatusService).recordStatusChange(savedOrder, null, OrderStatus.PENDING, user);
+        verifyNoInteractions(orderMapper);
+    }
+
+    @Test
+    void getOrderByIdThrowsWhenOrderMissing() {
+        when(orderRepository.findByIdWithDetails(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> orderService.getOrderById(99L))
+                .isInstanceOf(OrderNotFoundException.class)
+                .hasMessage("Order with ID 99 not found");
+
+        verifyNoInteractions(orderMapper, orderItemService, orderStatusService);
+    }
+
+    @Test
+    void getOrderByIdMapsOrderWithDetails() {
+        Order order = orderFor(user);
+        OrderResponseDto responseDto = OrderResponseDto.builder()
+                .id(99L)
+                .customerId(10L)
+                .status(OrderStatus.PENDING)
+                .build();
+        when(orderRepository.findByIdWithDetails(99L)).thenReturn(Optional.of(order));
+        when(orderMapper.toResponseDto(order)).thenReturn(responseDto);
+
+        OrderResponseDto response = orderService.getOrderById(99L);
+
+        assertThat(response).isSameAs(responseDto);
     }
 
     @Test
@@ -214,6 +289,39 @@ class OrderServiceTest {
     }
 
     @Test
+    void getAllOrdersAcceptsLowercaseSortOrder() {
+        when(orderRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        OrderFilterDto filter = validFilter();
+        filter.setSortOrder("asc");
+
+        PaginatedResponse<OrderListItemDto> response = orderService.getAllOrders(filter, user);
+
+        CapturedOrderQuery query = captureOrderQuery();
+        assertThat(query.pageable.getSort().getOrderFor("createdDate").getDirection()).isEqualTo(Sort.Direction.ASC);
+        assertThat(response.getData()).isEmpty();
+        verifyNoInteractions(orderMapper);
+    }
+
+    @Test
+    void getAllOrdersAppliesStatusMarketplaceAndDateRangeFilters() {
+        when(orderRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        OrderFilterDto filter = validFilter();
+        filter.setStatus(OrderStatus.PROCESSING);
+        filter.setMarketplaceSource("etsy");
+        filter.setDateFrom(LocalDate.of(2026, 5, 1));
+        filter.setDateTo(LocalDate.of(2026, 5, 16));
+
+        orderService.getAllOrders(filter, user);
+
+        CapturedOrderQuery query = captureOrderQuery();
+        assertSpecificationUsesOptionalFilters(query.specification);
+    }
+
+    @Test
     void updateOrderStatusThrowsWhenOrderMissing() {
         when(orderRepository.findById(99L)).thenReturn(Optional.empty());
 
@@ -317,6 +425,20 @@ class OrderServiceTest {
                 .build();
     }
 
+    private CreateOrderDto validCreateOrder() {
+        return CreateOrderDto.builder()
+                .customerId(10L)
+                .items(List.of(OrderItemDto.builder()
+                        .productName("Notebook")
+                        .quantity(1)
+                        .price(new BigDecimal("49.98"))
+                        .subtotal(new BigDecimal("49.98"))
+                        .build()))
+                .totalAmount(new BigDecimal("49.98"))
+                .marketplaceSource("amazon")
+                .build();
+    }
+
     private Order orderFor(User customer) {
         return Order.builder()
                 .id(99L)
@@ -349,6 +471,48 @@ class OrderServiceTest {
         when(criteriaBuilder.equal(customerIdPath, expectedCustomerId)).thenReturn(predicate);
 
         assertThat(specification.toPredicate(root, criteriaQuery, criteriaBuilder)).isSameAs(predicate);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void assertSpecificationUsesOptionalFilters(Specification<Order> specification) {
+        Root<Order> root = mock(Root.class);
+        CriteriaQuery<?> criteriaQuery = mock(CriteriaQuery.class);
+        CriteriaBuilder criteriaBuilder = mock(CriteriaBuilder.class);
+        Path<Object> customerPath = mock(Path.class);
+        Path<Object> customerIdPath = mock(Path.class);
+        Path<OrderStatus> statusPath = mock(Path.class);
+        Path<String> marketplacePath = mock(Path.class);
+        Path<LocalDateTime> createdDatePath = mock(Path.class);
+        Predicate customerPredicate = mock(Predicate.class);
+        Predicate statusPredicate = mock(Predicate.class);
+        Predicate marketplacePredicate = mock(Predicate.class);
+        Predicate dateRangePredicate = mock(Predicate.class);
+        Predicate combinedPredicate = mock(Predicate.class);
+
+        when(root.get("customer")).thenReturn((Path) customerPath);
+        when(customerPath.get("id")).thenReturn((Path) customerIdPath);
+        when(root.get("status")).thenReturn((Path) statusPath);
+        when(root.get("marketplaceSource")).thenReturn((Path) marketplacePath);
+        when(root.get("createdDate")).thenReturn((Path) createdDatePath);
+        when(criteriaBuilder.equal(customerIdPath, 10L)).thenReturn(customerPredicate);
+        when(criteriaBuilder.equal(statusPath, OrderStatus.PROCESSING)).thenReturn(statusPredicate);
+        when(criteriaBuilder.equal(marketplacePath, "etsy")).thenReturn(marketplacePredicate);
+        when(criteriaBuilder.between(
+                (Expression) createdDatePath,
+                LocalDateTime.of(2026, 5, 1, 0, 0),
+                LocalDateTime.of(2026, 5, 16, 23, 59, 59)
+        )).thenReturn(dateRangePredicate);
+        when(criteriaBuilder.and(any(Predicate.class), any(Predicate.class))).thenReturn(combinedPredicate);
+
+        assertThat(specification.toPredicate(root, criteriaQuery, criteriaBuilder)).isSameAs(combinedPredicate);
+        verify(criteriaBuilder).equal(customerIdPath, 10L);
+        verify(criteriaBuilder).equal(statusPath, OrderStatus.PROCESSING);
+        verify(criteriaBuilder).equal(marketplacePath, "etsy");
+        verify(criteriaBuilder).between(
+                (Expression) createdDatePath,
+                LocalDateTime.of(2026, 5, 1, 0, 0),
+                LocalDateTime.of(2026, 5, 16, 23, 59, 59)
+        );
     }
 
     private record CapturedOrderQuery(Specification<Order> specification, Pageable pageable) {
