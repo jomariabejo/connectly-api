@@ -118,6 +118,13 @@ The API will be running at `http://localhost:8080`
 - `PUT /v1/posts/{postId}/comments/{commentId}` - Update comment
 - `DELETE /v1/posts/{postId}/comments/{commentId}` - Delete comment
 
+### Orders
+- `POST /v1/orders` - Create order
+- `GET /v1/orders` - Get orders with filtering and pagination
+- `GET /v1/orders/{id}` - Get single order
+- `PATCH /v1/orders/{id}/status` - Update order status
+- `GET /v1/orders/{id}/status-history` - Get order status history
+
 ---
 
 ## 🧪 Testing API Requests

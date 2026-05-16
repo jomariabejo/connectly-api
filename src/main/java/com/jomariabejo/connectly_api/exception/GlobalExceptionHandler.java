@@ -39,6 +39,16 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.NOT_FOUND, "Comment not found", ex);
     }
 
+    @ExceptionHandler(com.jomariabejo.connectly_api.orders_api.exception.OrderNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleOrderNotFoundException(com.jomariabejo.connectly_api.orders_api.exception.OrderNotFoundException ex) {
+        return buildErrorResponse(HttpStatus.NOT_FOUND, "Order not found", ex);
+    }
+
+    @ExceptionHandler(com.jomariabejo.connectly_api.orders_api.exception.InvalidFilterException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidFilterException(com.jomariabejo.connectly_api.orders_api.exception.InvalidFilterException ex) {
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "Invalid filter parameters", ex);
+    }
+
     @ExceptionHandler(UnauthorizedAccessException.class)
     public ResponseEntity<ErrorResponse> handleUnauthorizedAccessException(UnauthorizedAccessException ex) {
         return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Unauthorized access", ex);

@@ -80,6 +80,18 @@
     {
       "key": "resetOtp",
       "value": ""
+    },
+    {
+      "key": "orderId",
+      "value": "1"
+    },
+    {
+      "key": "marketplaceSource",
+      "value": "amazon"
+    },
+    {
+      "key": "orderStatus",
+      "value": "PENDING"
     }
   ],
   "item": [
@@ -922,6 +934,197 @@
             "header": [],
             "url": "{{baseUrl}}/v1/posts/{{postId}}",
             "description": "Deletes a post owned by the authenticated user."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders Flow",
+      "description": "Create, list, inspect, update, and audit orders as an authenticated user.",
+      "item": [
+        {
+          "name": "Create Order",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": {{currentUserId}},\n  \"items\": [\n    {\n      \"productName\": \"Connectly Starter Pack\",\n      \"quantity\": 2,\n      \"price\": 24.99,\n      \"subtotal\": 49.98\n    }\n  ],\n  \"totalAmount\": 49.98,\n  \"marketplaceSource\": \"{{marketplaceSource}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/orders",
+            "description": "Creates an order for the authenticated user and saves the returned id as `orderId`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "if (json.id) pm.collectionVariables.set('orderId', json.id);",
+                  "if (json.status) pm.collectionVariables.set('orderStatus', json.status);",
+                  "pm.test('Order created', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Orders",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/orders?page=0&size=20&sort=createdDate&sortOrder=DESC&status={{orderStatus}}&marketplace={{marketplaceSource}}",
+            "description": "Lists orders with pagination, sorting, status, and marketplace filters. Saves the first returned order id when present."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "if (Array.isArray(json.data) && json.data.length && json.data[0].id) {",
+                  "  pm.collectionVariables.set('orderId', json.data[0].id);",
+                  "  if (json.data[0].status) pm.collectionVariables.set('orderStatus', json.data[0].status);",
+                  "}",
+                  "pm.test('Orders listed', function () { pm.expect(pm.response.code).to.eql(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Order",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/orders/{{orderId}}",
+            "description": "Returns a single order with its items and status history."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "if (json.id) pm.collectionVariables.set('orderId', json.id);",
+                  "if (json.status) pm.collectionVariables.set('orderStatus', json.status);",
+                  "pm.test('Order loaded', function () { pm.expect(pm.response.code).to.eql(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Order Status",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newStatus\": \"PROCESSING\",\n  \"reason\": \"Order is ready for fulfillment\",\n  \"idempotencyKey\": \"order-status-update-1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/orders/{{orderId}}/status",
+            "description": "Moves an order to the next allowed status and saves the returned status."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "if (json.id) pm.collectionVariables.set('orderId', json.id);",
+                  "if (json.status) pm.collectionVariables.set('orderStatus', json.status);",
+                  "pm.test('Order status updated', function () { pm.expect(pm.response.code).to.eql(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Order Status History",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/orders/{{orderId}}/status-history?page=0&size=50",
+            "description": "Returns the audit trail of status changes for an order."
           }
         }
       ]
