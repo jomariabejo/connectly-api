@@ -1,3 +1,3 @@
 ### Get Order Status History
-GET http://localhost:8080/v1/orders/1/status-history?page=0&size=50
+GET http://localhost:8080/api/v1/orders/1/status-history?page=0&size=50
 Authorization: Bearer TOKEN_HERE

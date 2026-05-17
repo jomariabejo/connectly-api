@@ -1,5 +1,5 @@
 ### PayMongo Webhook
-POST http://localhost:8080/v1/payments/webhooks/paymongo
+POST http://localhost:8080/api/v1/payments/webhooks/paymongo
 Paymongo-Signature: SIGNATURE_HERE
 Content-Type: application/json
 

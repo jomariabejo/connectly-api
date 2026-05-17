@@ -1,13 +1,25 @@
 {
   "info": {
     "name": "Connectly API v1",
-    "description": "Importable Postman collection for the Connectly API. Requests are grouped by workflow from account creation through posts, comments, social actions, and admin operations. Set the collection variables before running requests that depend on existing users or admin credentials.",
+    "description": "Connectly API v1 Postman collection.\n\nURL rule: every request uses `{{baseUrl}}/v1/...` where `baseUrl` must include the servlet context path `/api` (e.g. `http://localhost:8080/api` → `http://localhost:8080/api/v1/auth/login`).\n\nDocker Compose: set `baseUrl` to `baseUrlStage` (8081), `baseUrlDemo` (8082), or `baseUrlProd` (8083), or copy that variable's value into `baseUrl` before running requests.\n\nMailpit verification links look like: `http://localhost:8080/api/v1/auth/verify?token=...`",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     {
       "key": "baseUrl",
-      "value": "http://localhost:8080"
+      "value": "http://localhost:8080/api"
+    },
+    {
+      "key": "baseUrlStage",
+      "value": "http://localhost:8081/api"
+    },
+    {
+      "key": "baseUrlDemo",
+      "value": "http://localhost:8082/api"
+    },
+    {
+      "key": "baseUrlProd",
+      "value": "http://localhost:8083/api"
     },
     {
       "key": "userEmail",
@@ -86,6 +98,10 @@
       "value": "1"
     },
     {
+      "key": "paymentId",
+      "value": "1"
+    },
+    {
       "key": "marketplaceSource",
       "value": "amazon"
     },
@@ -148,7 +164,7 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/v1/auth/verify?token={{verificationToken}}",
-            "description": "Verifies a newly registered user with the token copied from the Mailpit verification email."
+            "description": "Verifies a newly registered user with the token copied from the Mailpit verification email. Email link format: `http://localhost:8080/api/v1/auth/verify?token=...` (use `{{baseUrl}}/v1/auth/verify?token=...` in requests)."
           }
         },
         {
@@ -377,7 +393,7 @@
               }
             },
             "url": "{{baseUrl}}/v1/auth/forgot-password/email",
-            "description": "Starts a password reset flow using an emailed reset link."
+            "description": "Starts a password reset flow using an emailed reset link. Email link format: `.../api/v1/auth/reset-password?token=...`. Copy the token into `resetToken`, then run Reset Password (POST) with JSON body."
           }
         },
         {
@@ -429,7 +445,7 @@
               }
             },
             "url": "{{baseUrl}}/v1/auth/reset-password",
-            "description": "Completes a password reset using either a reset token or OTP."
+            "description": "Completes a password reset using either a reset token (from the email link `.../api/v1/auth/reset-password?token=...`) or OTP. Provide `token` OR `otp` in the body, not both."
           }
         },
         {
@@ -1125,6 +1141,128 @@
             "header": [],
             "url": "{{baseUrl}}/v1/orders/{{orderId}}/status-history?page=0&size=50",
             "description": "Returns the audit trail of status changes for an order."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments Flow",
+      "description": "Payment checkout and order payment queries. Run Orders Flow first to set `orderId`. Webhook requests are for provider simulation only.",
+      "item": [
+        {
+          "name": "Create Payment Checkout",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": {{orderId}},\n  \"provider\": \"PAYMONGO\",\n  \"currency\": \"PHP\",\n  \"successUrl\": \"http://localhost:3000/payment/success\",\n  \"cancelUrl\": \"http://localhost:3000/payment/cancel\",\n  \"idempotencyKey\": \"checkout-order-{{orderId}}-paymongo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/payments/checkout",
+            "description": "Creates a payment checkout session for an order. Saves returned payment id as `paymentId` when present."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "if (json.id) pm.collectionVariables.set('paymentId', json.id);",
+                  "pm.test('Checkout created', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Payment",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/payments/{{paymentId}}",
+            "description": "Returns a single payment by id for the authenticated user."
+          }
+        },
+        {
+          "name": "Get Order Payments",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/orders/{{orderId}}/payments",
+            "description": "Lists all payments associated with an order."
+          }
+        },
+        {
+          "name": "PayMongo Webhook (simulate)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Paymongo-Signature",
+                "value": "SIGNATURE_HERE",
+                "description": "Required for real webhooks; replace with valid signature in non-local testing."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"id\": \"evt_test_123\",\n    \"attributes\": {\n      \"type\": \"payment.paid\",\n      \"data\": {\n        \"id\": \"pay_test_123\",\n        \"attributes\": {\n          \"checkout_session_id\": \"cs_test_123\"\n        }\n      }\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/payments/webhooks/paymongo",
+            "description": "Simulates a PayMongo webhook callback. Production calls require a valid `Paymongo-Signature` header."
           }
         }
       ]
@@ -1936,8 +2074,20 @@
     },
     {
       "name": "System Routes",
-      "description": "Small test and dashboard routes that are useful for checking security behavior.",
+      "description": "Public smoke tests and secured dashboard routes for checking security behavior.",
       "item": [
+        {
+          "name": "Public Hello",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/public/hello",
+            "description": "Unauthenticated health-style route. Expected: `Hello, Connectly API is running!`"
+          }
+        },
         {
           "name": "Hello World",
           "request": {

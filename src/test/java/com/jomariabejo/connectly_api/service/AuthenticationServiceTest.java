@@ -1,5 +1,6 @@
 package com.jomariabejo.connectly_api.service;
 
+import com.jomariabejo.connectly_api.common.ApiUrlBuilder;
 import com.jomariabejo.connectly_api.dto.RegisterUserDto;
 import com.jomariabejo.connectly_api.exception.EmailAlreadyInUseException;
 import com.jomariabejo.connectly_api.exception.UserAlreadyExistsException;
@@ -24,6 +25,7 @@ class AuthenticationServiceTest {
     private final PasswordResetTokenService passwordResetTokenService = mock(PasswordResetTokenService.class);
     private final RateLimitingService rateLimitingService = mock(RateLimitingService.class);
     private final AuditService auditService = mock(AuditService.class);
+    private final ApiUrlBuilder apiUrlBuilder = new ApiUrlBuilder("http://localhost:8080/api");
 
     private final AuthenticationService authenticationService = new AuthenticationService(
             userRepository,
@@ -33,7 +35,8 @@ class AuthenticationServiceTest {
             verificationTokenService,
             passwordResetTokenService,
             rateLimitingService,
-            auditService
+            auditService,
+            apiUrlBuilder
     );
 
     @Test

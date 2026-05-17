@@ -1,5 +1,6 @@
 package com.jomariabejo.connectly_api.config;
 
+import com.jomariabejo.connectly_api.common.ApiPaths;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationProvider;
@@ -33,13 +34,20 @@ public class SecurityConfiguration {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/v1/auth/**").permitAll()
-                        .requestMatchers("/v1/payments/webhooks/**").permitAll()
-                        .requestMatchers("/v1/user/**").hasRole("USER")
-                        .requestMatchers("/v1/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/v1/public/**").permitAll()
-                        .requestMatchers("/v1/test/**").permitAll()
-                        .anyRequest().authenticated()
+                        .requestMatchers(ApiPaths.V1_AUTH + "/**").permitAll()
+                        .requestMatchers(ApiPaths.V1_PAYMENTS_WEBHOOKS + "/**").permitAll()
+                        .requestMatchers(ApiPaths.V1_PUBLIC + "/**").permitAll()
+                        .requestMatchers(ApiPaths.V1_TEST + "/**").permitAll()
+                        .requestMatchers(ApiPaths.V1_USER + "/**").hasRole("USER")
+                        .requestMatchers(ApiPaths.V1_ADMIN + "/**").hasRole("ADMIN")
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers(
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**"
+                        ).permitAll()
+                        .requestMatchers(ApiPaths.V1 + "/**").authenticated()
+                        .anyRequest().denyAll()
                 )
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)

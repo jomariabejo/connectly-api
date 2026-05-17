@@ -1,5 +1,6 @@
 package com.jomariabejo.connectly_api.service;
 
+import com.jomariabejo.connectly_api.common.ApiUrlBuilder;
 import com.jomariabejo.connectly_api.dto.RegisterUserDto;
 import com.jomariabejo.connectly_api.dto.LoginUserDto;
 import com.jomariabejo.connectly_api.exception.EmailAlreadyInUseException;
@@ -13,18 +14,13 @@ import com.jomariabejo.connectly_api.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.token.TokenService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 
-import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.Optional;
 import java.util.UUID;
@@ -44,12 +40,10 @@ public class AuthenticationService {
     private final PasswordResetTokenService passwordResetTokenService;
     private final RateLimitingService rateLimitingService;
     private final AuditService auditService;
+    private final ApiUrlBuilder apiUrlBuilder;
 
     @Value("${security.password.validation.min-length:8}")
     private int passwordMinLength;
-
-    @Value("${app.password-reset.redirect-url:http://localhost:8080/reset-password}")
-    private String passwordResetRedirectUrl;
 
     public AuthenticationService(
             UserRepository userRepository,
@@ -59,7 +53,8 @@ public class AuthenticationService {
             VerificationTokenService verificationTokenService,
             PasswordResetTokenService passwordResetTokenService,
             RateLimitingService rateLimitingService,
-            AuditService auditService) {
+            AuditService auditService,
+            ApiUrlBuilder apiUrlBuilder) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -68,6 +63,7 @@ public class AuthenticationService {
         this.passwordResetTokenService = passwordResetTokenService;
         this.rateLimitingService = rateLimitingService;
         this.auditService = auditService;
+        this.apiUrlBuilder = apiUrlBuilder;
     }
 
     public User signup(RegisterUserDto registerUserDto) {
@@ -98,7 +94,7 @@ public class AuthenticationService {
 
         verificationTokenService.createVerificationToken(user,token);
         // Send verification email
-        String verificationLink = "http://localhost:8080/v1/auth/verify?token=" + token;
+        String verificationLink = apiUrlBuilder.authVerifyUrl(token);
         emailService.sendVerificationEmail(user.getEmail(), verificationLink);
 
 
@@ -166,7 +162,7 @@ public class AuthenticationService {
             String resetToken = passwordResetTokenService.createEmailResetToken(user);
 
             // Send email with reset link
-            String resetLink = passwordResetRedirectUrl + "?token=" + resetToken;
+            String resetLink = apiUrlBuilder.authResetPasswordUrl(resetToken);
             emailService.sendPasswordResetEmailWithLink(email, resetLink);
 
             logger.info("Password reset email sent to: {}", email);

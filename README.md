@@ -23,11 +23,20 @@ A robust, scalable backend for a modern social platform — enabling users to po
 
 ---
 
-## 📚 API Testing
+## 📚 Documentation
 
-All API endpoints are available as `.http` files in the `src/main/resources/docs/http-template/` directory for easy testing with VS Code REST Client extension.
+| Guide | Description |
+|-------|-------------|
+| [**Documentation index**](docs/README.md) | Start here — all guides in one place |
+| [Local development](docs/getting-started/local-development.md) | `./gradlew bootRun`, Postgres, Mailpit |
+| [Quick start (Docker)](docs/getting-started/quick-start.md) | Stage, demo, prod via Docker Compose |
+| [Debugging](docs/getting-started/debugging.md) | Logs, Postman, common errors |
+| [Deployment](docs/deployment/deployment.md) | CI/CD, DigitalOcean, multi-env |
+| [Datadog](docs/deployment/datadog.md) | APM and monitoring |
 
-👉 Install [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension and click "Send Request" on any file.
+**API testing:** Postman collection and `.http` files under `src/main/resources/docs/`. Use [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) for `.http` files.
+
+**Base URL:** `http://localhost:8080/api` — all routes are under `/api/v1/...` (e.g. `/api/v1/auth/login`).
 
 ---
 
@@ -43,93 +52,46 @@ All API endpoints are available as `.http` files in the `src/main/resources/docs
 
 ## 🚀 Getting Started
 
-### Prerequisites
+**Prerequisites:** Java 17+, PostgreSQL, Gradle (wrapper included). Optional: Docker for Mailpit and multi-env Compose.
 
-- **Java 17+**
-- **PostgreSQL** (running locally)
-- **Gradle** (included with `./gradlew`)
-- **Docker** (optional, for MailHog)
-
-### Quick Setup
-
-#### 1. Clone & Navigate
 ```bash
 git clone https://github.com/jomariabejo/connectly-api.git
 cd connectly-api
-```
-
-#### 2. Setup PostgreSQL Database
-```bash
-# Create database
-createdb connectly_db
-
-# If using different credentials, update src/main/resources/application.properties
-```
-
-#### 3. Setup Local Email with MailHog
-For development, we use **MailHog** to capture emails locally:
-
-**Option A: Using Docker** (easiest)
-```bash
-docker run -d --name mailhog -p 1025:1025 -p 8025:8025 mailpit/mailpit
-```
-
-**Option B: Direct Install** (requires Go)
-```bash
-go install github.com/mailhog/MailHog@latest
-MailHog
-```
-
-Once running:
-- 📧 **SMTP Server:** `localhost:1025` (app sends emails here)
-- 🌐 **Web UI:** http://localhost:8025 (view sent emails)
-
-#### 4. Run the Application
-```bash
 ./gradlew bootRun
 ```
 
-The API will be running at `http://localhost:8080`
+API base URL: **http://localhost:8080/api** — try `GET /api/v1/public/hello`.
+
+Full setup (database, Mailpit, Docker): **[Local development guide](docs/getting-started/local-development.md)**.
 
 ---
 
-## 📡 API Endpoints
+## 📡 API Endpoints (prefix `/api/v1`)
+
+### Public
+- `GET /api/v1/public/hello` — smoke test
 
 ### Authentication
-- `POST /v1/auth/registration` - Register new user
-- `POST /v1/auth/login` - Login user
-- `GET /v1/auth/verify?token=TOKEN` - Verify email
+- `POST /api/v1/auth/registration` — Register
+- `POST /api/v1/auth/login` — Login
+- `GET /api/v1/auth/verify?token=TOKEN` — Verify email
 
 ### Users
-- `GET /v1/users/me` - Get current user profile
-- `PUT /v1/users/me` - Update profile
+- `GET /api/v1/users/me` — Current user
+- `PUT /api/v1/users/me` — Update profile
 
-### Posts
-- `POST /v1/posts` - Create post
-- `GET /v1/posts` - Get all posts
-- `GET /v1/posts/{id}` - Get single post
-- `PUT /v1/posts/{id}` - Update post
-- `DELETE /v1/posts/{id}` - Delete post
-- `POST /v1/posts/{id}/likes/toggle` - Toggle post like
+### Posts & comments
+- `POST /api/v1/posts` — Create post
+- `GET /api/v1/posts` — List posts
+- `POST /api/v1/posts/{postId}/comments` — Add comment
+- `POST /api/v1/posts/{postId}/likes/toggle` — Toggle like
 
-### Comments
-- `POST /v1/posts/{postId}/comments` - Create comment
-- `GET /v1/posts/{postId}/comments` - Get post comments
-- `PUT /v1/posts/{postId}/comments/{commentId}` - Update comment
-- `DELETE /v1/posts/{postId}/comments/{commentId}` - Delete comment
+### Orders & payments
+- `POST /api/v1/orders` — Create order
+- `PATCH /api/v1/orders/{id}/status` — Update status
+- `POST /api/v1/payments/checkout` — Checkout session
 
-### Orders
-- `POST /v1/orders` - Create order
-- `GET /v1/orders` - Get orders with filtering and pagination
-- `GET /v1/orders/{id}` - Get single order
-- `PATCH /v1/orders/{id}/status` - Update order status
-- `GET /v1/orders/{id}/status-history` - Get order status history
-
-### Payments
-- `POST /v1/payments/checkout` - Create provider checkout session
-- `GET /v1/payments/{paymentId}` - Get payment details
-- `GET /v1/orders/{orderId}/payments` - Get payments for an order
-- `POST /v1/payments/webhooks/{provider}` - Receive provider webhook callbacks
+See Postman collection or `src/main/resources/docs/http-template/` for the full API.
 
 ---
 
