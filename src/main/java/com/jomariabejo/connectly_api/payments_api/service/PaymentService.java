@@ -1,6 +1,7 @@
 package com.jomariabejo.connectly_api.payments_api.service;
 
 import com.jomariabejo.connectly_api.model.User;
+import com.jomariabejo.connectly_api.inventory_api.service.InventoryService;
 import com.jomariabejo.connectly_api.orders_api.entity.Order;
 import com.jomariabejo.connectly_api.orders_api.exception.OrderNotFoundException;
 import com.jomariabejo.connectly_api.orders_api.repository.OrderRepository;
@@ -50,19 +51,22 @@ public class PaymentService {
     private final OrderRepository orderRepository;
     private final PaymentGatewayRegistry paymentGatewayRegistry;
     private final PaymentMapper paymentMapper;
+    private final InventoryService inventoryService;
 
     public PaymentService(PaymentRepository paymentRepository,
                           PaymentEventRepository paymentEventRepository,
                           PaymentAttemptRepository paymentAttemptRepository,
                           OrderRepository orderRepository,
                           PaymentGatewayRegistry paymentGatewayRegistry,
-                          PaymentMapper paymentMapper) {
+                          PaymentMapper paymentMapper,
+                          InventoryService inventoryService) {
         this.paymentRepository = paymentRepository;
         this.paymentEventRepository = paymentEventRepository;
         this.paymentAttemptRepository = paymentAttemptRepository;
         this.orderRepository = orderRepository;
         this.paymentGatewayRegistry = paymentGatewayRegistry;
         this.paymentMapper = paymentMapper;
+        this.inventoryService = inventoryService;
     }
 
     @Transactional(noRollbackFor = PaymentGatewayException.class)
@@ -257,6 +261,21 @@ public class PaymentService {
         Order order = payment.getOrder();
         order.setPaymentStatus(providerEvent.getPaymentStatus());
         orderRepository.save(order);
+
+        applyInventoryTransition(payment, providerEvent.getPaymentStatus());
+    }
+
+    private void applyInventoryTransition(Payment payment, PaymentStatus status) {
+        if (status == PaymentStatus.PAID) {
+            inventoryService.commitReservationsForOrder(payment.getOrder().getId(), payment.getId());
+            return;
+        }
+        if (status == PaymentStatus.FAILED ||
+                status == PaymentStatus.CANCELLED ||
+                status == PaymentStatus.REFUNDED ||
+                status == PaymentStatus.PARTIALLY_REFUNDED) {
+            inventoryService.releaseReservationsForOrder(payment.getOrder().getId(), "Payment status " + status);
+        }
     }
 
     private String resolveProviderEventId(ProviderWebhookEvent event, String rawPayload) {
