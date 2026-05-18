@@ -1,5 +1,6 @@
 package com.jomariabejo.connectly_api.payments_api.service;
 
+import com.jomariabejo.connectly_api.inventory_api.service.InventoryService;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.orders_api.entity.Order;
 import com.jomariabejo.connectly_api.orders_api.exception.OrderNotFoundException;
@@ -56,13 +57,15 @@ class PaymentServiceTest {
     private final OrderRepository orderRepository = mock(OrderRepository.class);
     private final PaymentGatewayRegistry paymentGatewayRegistry = mock(PaymentGatewayRegistry.class);
     private final PaymentGateway paymentGateway = mock(PaymentGateway.class);
+    private final InventoryService inventoryService = mock(InventoryService.class);
     private final PaymentService paymentService = new PaymentService(
             paymentRepository,
             paymentEventRepository,
             paymentAttemptRepository,
             orderRepository,
             paymentGatewayRegistry,
-            new PaymentMapper()
+            new PaymentMapper(),
+            inventoryService
     );
 
     private User user;
@@ -330,6 +333,8 @@ class PaymentServiceTest {
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PAID);
         assertThat(payment.getProviderPaymentId()).isEqualTo("pay_123");
         assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
+        verify(inventoryService).commitReservationsForOrder(99L, 1L);
+        verify(inventoryService, never()).releaseReservationsForOrder(any(), any());
     }
 
     // ==================== GETPAYMENT TESTS ====================
@@ -596,6 +601,7 @@ class PaymentServiceTest {
 
         assertThat(response.getProcessingStatus()).isEqualTo(PaymentEventProcessingStatus.IGNORED);
         verify(paymentRepository, never()).save(any(Payment.class));
+        verifyNoInteractions(inventoryService);
     }
 
     @Test
@@ -633,6 +639,7 @@ class PaymentServiceTest {
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PENDING);
         verify(paymentRepository, never()).save(any(Payment.class));
         verifyNoInteractions(paymentAttemptRepository);
+        verifyNoInteractions(inventoryService);
 
         ArgumentCaptor<PaymentEvent> eventCaptor = ArgumentCaptor.forClass(PaymentEvent.class);
         verify(paymentEventRepository).save(eventCaptor.capture());
@@ -680,6 +687,8 @@ class PaymentServiceTest {
         assertThat(payment.getFailureMessage()).isEqualTo("Card was declined");
         assertThat(payment.getProviderPaymentId()).isEqualTo("pay_failed");
         assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.FAILED);
+        verify(inventoryService).releaseReservationsForOrder(99L, "Payment status FAILED");
+        verify(inventoryService, never()).commitReservationsForOrder(any(), any());
 
         ArgumentCaptor<PaymentAttempt> attemptCaptor = ArgumentCaptor.forClass(PaymentAttempt.class);
         verify(paymentAttemptRepository).save(attemptCaptor.capture());
@@ -731,6 +740,64 @@ class PaymentServiceTest {
         assertThat(paymentByProviderPaymentId.getStatus()).isEqualTo(PaymentStatus.PAID);
         assertThat(paymentByProviderPaymentId.getProviderCheckoutId()).isEqualTo("cs_test_123");
         assertThat(paymentByCheckoutId.getStatus()).isEqualTo(PaymentStatus.PENDING);
+        verify(inventoryService).commitReservationsForOrder(99L, 1L);
         verify(paymentRepository, never()).findByProviderAndProviderCheckoutId(PaymentProvider.PAYMONGO, "cs_test_123");
+    }
+
+    @Test
+    void cancelledWebhookReleasesInventoryReservation() {
+        Payment payment = Payment.builder()
+                .id(1L)
+                .order(order)
+                .customer(user)
+                .provider(PaymentProvider.PAYMONGO)
+                .providerCheckoutId("cs_test_123")
+                .amountMinor(4998L)
+                .currency("PHP")
+                .status(PaymentStatus.PENDING)
+                .build();
+
+        when(paymentGatewayRegistry.getGateway(PaymentProvider.PAYMONGO)).thenReturn(paymentGateway);
+        when(paymentGateway.verifyWebhook("{}", Map.of())).thenReturn(WebhookVerificationResult.valid());
+        when(paymentGateway.parseWebhook("{}")).thenReturn(ProviderWebhookEvent.builder()
+                .providerEventId("evt_cancelled")
+                .eventType("payment.cancelled")
+                .providerCheckoutId("cs_test_123")
+                .paymentStatus(PaymentStatus.CANCELLED)
+                .build());
+        when(paymentEventRepository.findByProviderAndProviderEventId(PaymentProvider.PAYMONGO, "evt_cancelled"))
+                .thenReturn(Optional.empty());
+        when(paymentRepository.findByProviderAndProviderCheckoutId(PaymentProvider.PAYMONGO, "cs_test_123"))
+                .thenReturn(Optional.of(payment));
+
+        paymentService.processWebhook(PaymentProvider.PAYMONGO, "{}", Map.of());
+
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CANCELLED);
+        verify(inventoryService).releaseReservationsForOrder(99L, "Payment status CANCELLED");
+        verify(inventoryService, never()).commitReservationsForOrder(any(), any());
+    }
+
+    @Test
+    void duplicatePaidWebhookDoesNotCommitInventoryAgain() {
+        PaymentEvent existingEvent = PaymentEvent.builder()
+                .provider(PaymentProvider.PAYMONGO)
+                .providerEventId("evt_1")
+                .eventType("payment.paid")
+                .processingStatus(PaymentEventProcessingStatus.PROCESSED)
+                .rawPayload("{}")
+                .build();
+        when(paymentGatewayRegistry.getGateway(PaymentProvider.PAYMONGO)).thenReturn(paymentGateway);
+        when(paymentGateway.verifyWebhook("{}", Map.of())).thenReturn(WebhookVerificationResult.valid());
+        when(paymentGateway.parseWebhook("{}")).thenReturn(ProviderWebhookEvent.builder()
+                .providerEventId("evt_1")
+                .eventType("payment.paid")
+                .paymentStatus(PaymentStatus.PAID)
+                .build());
+        when(paymentEventRepository.findByProviderAndProviderEventId(PaymentProvider.PAYMONGO, "evt_1"))
+                .thenReturn(Optional.of(existingEvent));
+
+        paymentService.processWebhook(PaymentProvider.PAYMONGO, "{}", Map.of());
+
+        verifyNoInteractions(inventoryService);
     }
 }

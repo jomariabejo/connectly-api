@@ -25,6 +25,9 @@ public class OrderItem {
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;
 
+    @Column(nullable = false, length = 120)
+    private String sku;
+
     @Column(nullable = false, length = 255)
     private String productName;
 

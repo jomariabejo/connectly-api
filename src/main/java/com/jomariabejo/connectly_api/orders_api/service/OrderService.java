@@ -1,6 +1,8 @@
 package com.jomariabejo.connectly_api.orders_api.service;
 
 import com.jomariabejo.connectly_api.model.User;
+import com.jomariabejo.connectly_api.inventory_api.dto.PricedOrderItem;
+import com.jomariabejo.connectly_api.inventory_api.service.InventoryService;
 import com.jomariabejo.connectly_api.orders_api.dto.CreateOrderDto;
 import com.jomariabejo.connectly_api.orders_api.dto.OrderFilterDto;
 import com.jomariabejo.connectly_api.orders_api.dto.OrderListItemDto;
@@ -42,13 +44,16 @@ public class OrderService {
     private final OrderMapper orderMapper;
     private final OrderItemService orderItemService;
     private final OrderStatusService orderStatusService;
+    private final InventoryService inventoryService;
 
     public OrderService(OrderRepository orderRepository, OrderMapper orderMapper,
-                       OrderItemService orderItemService, OrderStatusService orderStatusService) {
+                       OrderItemService orderItemService, OrderStatusService orderStatusService,
+                       InventoryService inventoryService) {
         this.orderRepository = orderRepository;
         this.orderMapper = orderMapper;
         this.orderItemService = orderItemService;
         this.orderStatusService = orderStatusService;
+        this.inventoryService = inventoryService;
     }
 
     @Transactional
@@ -58,19 +63,19 @@ public class OrderService {
             throw new InvalidFilterException("Order must contain at least one item");
         }
 
-        // Create order entity
+        PricedOrderItem pricedOrder = inventoryService.priceOrderItems(createOrderDto.getItems());
+
         Order order = Order.builder()
                 .customer(authenticatedUser)
-                .totalAmount(createOrderDto.getTotalAmount())
+                .totalAmount(pricedOrder.getTotalAmount())
                 .status(OrderStatus.PENDING)
                 .marketplaceSource(createOrderDto.getMarketplaceSource())
                 .build();
 
-        // Save order first
         Order savedOrder = orderRepository.save(order);
 
-        // Create order items
-        orderItemService.createOrderItems(savedOrder, createOrderDto.getItems());
+        inventoryService.reserveOrderItems(savedOrder.getId(), pricedOrder.getItems());
+        orderItemService.createOrderItems(savedOrder, pricedOrder.getItems());
 
         // Record initial status
         orderStatusService.recordStatusChange(savedOrder, null, OrderStatus.PENDING, authenticatedUser);
@@ -148,6 +153,10 @@ public class OrderService {
         // Update order status
         order.setStatus(updateDto.getNewStatus());
         Order updatedOrder = orderRepository.save(order);
+
+        if (updateDto.getNewStatus() == OrderStatus.CANCELLED) {
+            inventoryService.releaseReservationsForOrder(order.getId(), "Order cancelled");
+        }
 
         // Record status change in audit trail
         orderStatusService.recordStatusChange(updatedOrder, oldStatus, updateDto.getNewStatus(), authenticatedUser);

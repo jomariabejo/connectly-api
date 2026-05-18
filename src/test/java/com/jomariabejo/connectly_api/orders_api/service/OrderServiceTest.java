@@ -1,6 +1,10 @@
 package com.jomariabejo.connectly_api.orders_api.service;
 
 import com.jomariabejo.connectly_api.model.User;
+import com.jomariabejo.connectly_api.inventory_api.dto.PricedOrderItem;
+import com.jomariabejo.connectly_api.inventory_api.exception.InsufficientInventoryException;
+import com.jomariabejo.connectly_api.inventory_api.exception.InventoryNotFoundException;
+import com.jomariabejo.connectly_api.inventory_api.service.InventoryService;
 import com.jomariabejo.connectly_api.orders_api.dto.CreateOrderDto;
 import com.jomariabejo.connectly_api.orders_api.dto.OrderFilterDto;
 import com.jomariabejo.connectly_api.orders_api.dto.OrderItemDto;
@@ -51,11 +55,13 @@ class OrderServiceTest {
     private final OrderMapper orderMapper = mock(OrderMapper.class);
     private final OrderItemService orderItemService = mock(OrderItemService.class);
     private final OrderStatusService orderStatusService = mock(OrderStatusService.class);
+    private final InventoryService inventoryService = mock(InventoryService.class);
     private final OrderService orderService = new OrderService(
             orderRepository,
             orderMapper,
             orderItemService,
-            orderStatusService
+            orderStatusService,
+            inventoryService
     );
 
     private User user;
@@ -80,7 +86,7 @@ class OrderServiceTest {
                 .isInstanceOf(InvalidFilterException.class)
                 .hasMessage("Order must contain at least one item");
 
-        verifyNoInteractions(orderRepository, orderItemService, orderStatusService, orderMapper);
+        verifyNoInteractions(orderRepository, orderItemService, orderStatusService, orderMapper, inventoryService);
     }
 
     @Test
@@ -96,19 +102,21 @@ class OrderServiceTest {
                 .isInstanceOf(InvalidFilterException.class)
                 .hasMessage("Order must contain at least one item");
 
-        verifyNoInteractions(orderRepository, orderItemService, orderStatusService, orderMapper);
+        verifyNoInteractions(orderRepository, orderItemService, orderStatusService, orderMapper, inventoryService);
     }
 
     @Test
     void createOrderPersistsPendingOrderAndRecordsInitialStatus() {
         CreateOrderDto request = validCreateOrder();
         Order savedOrder = orderFor(user);
+        PricedOrderItem pricedOrder = pricedOrder();
         OrderResponseDto responseDto = OrderResponseDto.builder()
                 .id(99L)
                 .customerId(10L)
                 .status(OrderStatus.PENDING)
                 .build();
 
+        when(inventoryService.priceOrderItems(request.getItems())).thenReturn(pricedOrder);
         when(orderRepository.save(any(Order.class))).thenReturn(savedOrder);
         when(orderRepository.findByIdWithDetails(99L)).thenReturn(Optional.of(savedOrder));
         when(orderMapper.toResponseDto(savedOrder)).thenReturn(responseDto);
@@ -122,15 +130,67 @@ class OrderServiceTest {
         assertThat(persistedOrder.getTotalAmount()).isEqualByComparingTo("49.98");
         assertThat(persistedOrder.getStatus()).isEqualTo(OrderStatus.PENDING);
         assertThat(persistedOrder.getMarketplaceSource()).isEqualTo("amazon");
-        verify(orderItemService).createOrderItems(savedOrder, request.getItems());
+        verify(inventoryService).reserveOrderItems(99L, pricedOrder.getItems());
+        verify(orderItemService).createOrderItems(savedOrder, pricedOrder.getItems());
         verify(orderStatusService).recordStatusChange(savedOrder, null, OrderStatus.PENDING, user);
         assertThat(response).isSameAs(responseDto);
+    }
+
+    @Test
+    void createOrderIgnoresClientTotalAndUsesInventoryPricing() {
+        CreateOrderDto request = validCreateOrder();
+        request.setTotalAmount(new BigDecimal("0.01"));
+        Order savedOrder = orderFor(user);
+        PricedOrderItem pricedOrder = pricedOrder();
+        when(inventoryService.priceOrderItems(request.getItems())).thenReturn(pricedOrder);
+        when(orderRepository.save(any(Order.class))).thenReturn(savedOrder);
+        when(orderRepository.findByIdWithDetails(99L)).thenReturn(Optional.of(savedOrder));
+        when(orderMapper.toResponseDto(savedOrder)).thenReturn(OrderResponseDto.builder().id(99L).build());
+
+        orderService.createOrder(request, user);
+
+        ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
+        verify(orderRepository).save(orderCaptor.capture());
+        assertThat(orderCaptor.getValue().getTotalAmount()).isEqualByComparingTo("49.98");
+    }
+
+    @Test
+    void createOrderPropagatesMissingInventoryItemBeforeSaving() {
+        CreateOrderDto request = validCreateOrder();
+        when(inventoryService.priceOrderItems(request.getItems())).thenThrow(new InventoryNotFoundException("NOTEBOOK-1"));
+
+        assertThatThrownBy(() -> orderService.createOrder(request, user))
+                .isInstanceOf(InventoryNotFoundException.class)
+                .hasMessageContaining("NOTEBOOK-1");
+
+        verifyNoInteractions(orderRepository, orderItemService, orderStatusService, orderMapper);
+    }
+
+    @Test
+    void createOrderRollsBackWhenReservationFails() {
+        CreateOrderDto request = validCreateOrder();
+        Order savedOrder = orderFor(user);
+        PricedOrderItem pricedOrder = pricedOrder();
+        when(inventoryService.priceOrderItems(request.getItems())).thenReturn(pricedOrder);
+        when(orderRepository.save(any(Order.class))).thenReturn(savedOrder);
+        org.mockito.Mockito.doThrow(new InsufficientInventoryException("NOTEBOOK-1", 1, 0))
+                .when(inventoryService).reserveOrderItems(99L, pricedOrder.getItems());
+
+        assertThatThrownBy(() -> orderService.createOrder(request, user))
+                .isInstanceOf(InsufficientInventoryException.class)
+                .hasMessageContaining("NOTEBOOK-1");
+
+        verify(orderRepository).save(any(Order.class));
+        verify(orderItemService, never()).createOrderItems(any(Order.class), any());
+        verifyNoInteractions(orderStatusService, orderMapper);
     }
 
     @Test
     void createOrderThrowsWhenSavedOrderCannotBeFetchedWithDetails() {
         CreateOrderDto request = validCreateOrder();
         Order savedOrder = orderFor(user);
+        PricedOrderItem pricedOrder = pricedOrder();
+        when(inventoryService.priceOrderItems(request.getItems())).thenReturn(pricedOrder);
         when(orderRepository.save(any(Order.class))).thenReturn(savedOrder);
         when(orderRepository.findByIdWithDetails(99L)).thenReturn(Optional.empty());
 
@@ -138,7 +198,8 @@ class OrderServiceTest {
                 .isInstanceOf(OrderNotFoundException.class)
                 .hasMessage("Order with ID 99 not found");
 
-        verify(orderItemService).createOrderItems(savedOrder, request.getItems());
+        verify(inventoryService).reserveOrderItems(99L, pricedOrder.getItems());
+        verify(orderItemService).createOrderItems(savedOrder, pricedOrder.getItems());
         verify(orderStatusService).recordStatusChange(savedOrder, null, OrderStatus.PENDING, user);
         verifyNoInteractions(orderMapper);
     }
@@ -377,6 +438,33 @@ class OrderServiceTest {
         verify(orderRepository).save(orderCaptor.capture());
         assertThat(orderCaptor.getValue().getStatus()).isEqualTo(OrderStatus.PROCESSING);
         verify(orderStatusService).recordStatusChange(order, OrderStatus.PENDING, OrderStatus.PROCESSING, user);
+        verify(inventoryService, never()).releaseReservationsForOrder(any(), any());
+        assertThat(response).isSameAs(responseDto);
+    }
+
+    @Test
+    void updateOrderStatusReleasesInventoryWhenCancelled() {
+        Order order = orderFor(user);
+        order.setStatus(OrderStatus.PENDING);
+        OrderResponseDto responseDto = OrderResponseDto.builder()
+                .id(99L)
+                .customerId(10L)
+                .status(OrderStatus.CANCELLED)
+                .build();
+
+        when(orderRepository.findById(99L)).thenReturn(Optional.of(order));
+        when(orderStatusService.validateStatusTransition(OrderStatus.PENDING, OrderStatus.CANCELLED))
+                .thenReturn(true);
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.findByIdWithDetails(99L)).thenReturn(Optional.of(order));
+        when(orderMapper.toResponseDto(order)).thenReturn(responseDto);
+
+        OrderResponseDto response = orderService.updateOrderStatus(99L, UpdateOrderStatusDto.builder()
+                .newStatus(OrderStatus.CANCELLED)
+                .build(), user);
+
+        verify(inventoryService).releaseReservationsForOrder(99L, "Order cancelled");
+        verify(orderStatusService).recordStatusChange(order, OrderStatus.PENDING, OrderStatus.CANCELLED, user);
         assertThat(response).isSameAs(responseDto);
     }
 
@@ -429,6 +517,7 @@ class OrderServiceTest {
         return CreateOrderDto.builder()
                 .customerId(10L)
                 .items(List.of(OrderItemDto.builder()
+                        .sku("NOTEBOOK-1")
                         .productName("Notebook")
                         .quantity(1)
                         .price(new BigDecimal("49.98"))
@@ -437,6 +526,16 @@ class OrderServiceTest {
                 .totalAmount(new BigDecimal("49.98"))
                 .marketplaceSource("amazon")
                 .build();
+    }
+
+    private PricedOrderItem pricedOrder() {
+        return new PricedOrderItem(List.of(OrderItemDto.builder()
+                .sku("NOTEBOOK-1")
+                .productName("Notebook")
+                .quantity(1)
+                .price(new BigDecimal("49.98"))
+                .subtotal(new BigDecimal("49.98"))
+                .build()), new BigDecimal("49.98"));
     }
 
     private Order orderFor(User customer) {

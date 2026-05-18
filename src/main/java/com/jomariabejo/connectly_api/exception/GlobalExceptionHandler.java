@@ -49,6 +49,21 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.BAD_REQUEST, "Invalid filter parameters", ex);
     }
 
+    @ExceptionHandler(com.jomariabejo.connectly_api.inventory_api.exception.InventoryNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleInventoryNotFoundException(com.jomariabejo.connectly_api.inventory_api.exception.InventoryNotFoundException ex) {
+        return buildErrorResponse(HttpStatus.NOT_FOUND, "Inventory item not found", ex);
+    }
+
+    @ExceptionHandler(com.jomariabejo.connectly_api.inventory_api.exception.InvalidInventoryRequestException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidInventoryRequestException(com.jomariabejo.connectly_api.inventory_api.exception.InvalidInventoryRequestException ex) {
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "Invalid inventory request", ex);
+    }
+
+    @ExceptionHandler(com.jomariabejo.connectly_api.inventory_api.exception.InsufficientInventoryException.class)
+    public ResponseEntity<ErrorResponse> handleInsufficientInventoryException(com.jomariabejo.connectly_api.inventory_api.exception.InsufficientInventoryException ex) {
+        return buildErrorResponse(HttpStatus.CONFLICT, "Insufficient inventory", ex);
+    }
+
     @ExceptionHandler(com.jomariabejo.connectly_api.payments_api.exception.PaymentNotFoundException.class)
     public ResponseEntity<ErrorResponse> handlePaymentNotFoundException(com.jomariabejo.connectly_api.payments_api.exception.PaymentNotFoundException ex) {
         return buildErrorResponse(HttpStatus.NOT_FOUND, "Payment not found", ex);
