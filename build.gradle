@@ -46,7 +46,7 @@ dependencies {
 	implementation("org.mapstruct:mapstruct:1.6.3")
 	implementation("org.mapstruct:mapstruct-processor:1.6.3")
 
-	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	// developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	runtimeOnly 'org.postgresql:postgresql'
 	runtimeOnly 'org.projectlombok:lombok:1.18.36'
 

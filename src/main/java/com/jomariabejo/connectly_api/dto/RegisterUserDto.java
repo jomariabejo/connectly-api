@@ -17,4 +17,10 @@ public class RegisterUserDto {
 
     @NotBlank(message = "Username is mandatory")
     private String username;
+
+    @NotBlank(message = "First name is mandatory")
+    private String firstName;
+
+    @NotBlank(message = "Last name is mandatory")
+    private String lastName;
 }

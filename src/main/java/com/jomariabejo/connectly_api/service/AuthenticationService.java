@@ -79,6 +79,8 @@ public class AuthenticationService {
         User user = new User();
         user.setUsername(registerUserDto.getUsername());
         user.setEmail(registerUserDto.getEmail());
+        user.setFirstName(registerUserDto.getFirstName());
+        user.setLastName(registerUserDto.getLastName());
         user.setPassword(passwordEncoder.encode(registerUserDto.getPassword()));
         user.setEnabled(false);
 

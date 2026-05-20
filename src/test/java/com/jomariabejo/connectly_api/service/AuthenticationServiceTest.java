@@ -23,6 +23,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.mockito.ArgumentCaptor;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -68,6 +70,28 @@ class AuthenticationServiceTest {
 
         verify(userRepository).existsAnyByUsername("connectly_usera");
         verifyNoMoreInteractions(userRepository);
+    }
+
+    @Test
+    void signupPersistsFirstAndLastName() {
+        RegisterUserDto request = registrationRequest();
+        when(userRepository.existsAnyByUsername("connectly_usera")).thenReturn(false);
+        when(userRepository.existsAnyByEmail("test@example.com")).thenReturn(false);
+        when(passwordEncoder.encode("Password1!")).thenReturn("encoded-password");
+
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        when(userRepository.save(userCaptor.capture())).thenAnswer(invocation -> {
+            User saved = invocation.getArgument(0);
+            saved.setId(1L);
+            return saved;
+        });
+
+        User result = authenticationService.signup(request);
+
+        assertThat(result.getFirstName()).isEqualTo("Jane");
+        assertThat(result.getLastName()).isEqualTo("Doe");
+        assertThat(userCaptor.getValue().getFirstName()).isEqualTo("Jane");
+        assertThat(userCaptor.getValue().getLastName()).isEqualTo("Doe");
     }
 
     @Test
@@ -343,6 +367,8 @@ class AuthenticationServiceTest {
         request.setUsername("connectly_usera");
         request.setEmail("test@example.com");
         request.setPassword("Password1!");
+        request.setFirstName("Jane");
+        request.setLastName("Doe");
         return request;
     }
 
