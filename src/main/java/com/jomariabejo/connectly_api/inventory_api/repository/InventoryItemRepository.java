@@ -15,10 +15,23 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, Lo
 
     Optional<InventoryItem> findBySkuAndActiveTrue(String sku);
 
+    Optional<InventoryItem> findByTenantIdAndSku(Long tenantId, String sku);
+
+    Optional<InventoryItem> findByTenantIdAndSkuAndActiveTrue(Long tenantId, String sku);
+
     List<InventoryItem> findByActiveTrueOrderByNameAsc();
+
+    List<InventoryItem> findByTenantIdAndActiveTrueOrderByNameAsc(Long tenantId);
 
     boolean existsBySku(String sku);
 
+    boolean existsByTenantIdAndSku(Long tenantId, String sku);
+
+    long countByTenantIdAndActiveTrue(Long tenantId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<InventoryItem> findWithLockBySku(String sku);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<InventoryItem> findWithLockByTenantIdAndSku(Long tenantId, String sku);
 }

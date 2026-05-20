@@ -33,4 +33,10 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
     long countByStatus(com.jomariabejo.connectly_api.orders_api.entity.OrderStatus status);
 
     long countByMarketplaceSource(String marketplace);
+
+    long countByTenantId(Long tenantId);
+
+    long countByTenantIdAndStatus(Long tenantId, com.jomariabejo.connectly_api.orders_api.entity.OrderStatus status);
+
+    Optional<Order> findByIdAndTenantId(Long id, Long tenantId);
 }

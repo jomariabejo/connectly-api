@@ -15,6 +15,10 @@ import com.jomariabejo.connectly_api.orders_api.exception.InvalidFilterException
 import com.jomariabejo.connectly_api.orders_api.exception.OrderNotFoundException;
 import com.jomariabejo.connectly_api.orders_api.mapper.OrderMapper;
 import com.jomariabejo.connectly_api.orders_api.repository.OrderRepository;
+import com.jomariabejo.connectly_api.tenant_api.context.TenantContext;
+import com.jomariabejo.connectly_api.tenant_api.entity.Tenant;
+import com.jomariabejo.connectly_api.tenant_api.entity.TenantRole;
+import com.jomariabejo.connectly_api.tenant_api.service.TenantContextService;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -45,15 +49,18 @@ public class OrderService {
     private final OrderItemService orderItemService;
     private final OrderStatusService orderStatusService;
     private final InventoryService inventoryService;
+    private final TenantContextService tenantContextService;
 
     public OrderService(OrderRepository orderRepository, OrderMapper orderMapper,
                        OrderItemService orderItemService, OrderStatusService orderStatusService,
-                       InventoryService inventoryService) {
+                       InventoryService inventoryService,
+                       TenantContextService tenantContextService) {
         this.orderRepository = orderRepository;
         this.orderMapper = orderMapper;
         this.orderItemService = orderItemService;
         this.orderStatusService = orderStatusService;
         this.inventoryService = inventoryService;
+        this.tenantContextService = tenantContextService;
     }
 
     @Transactional
@@ -65,7 +72,10 @@ public class OrderService {
 
         PricedOrderItem pricedOrder = inventoryService.priceOrderItems(createOrderDto.getItems());
 
+        Tenant tenant = tenantContextService.requireTenant();
+
         Order order = Order.builder()
+                .tenant(tenant)
                 .customer(authenticatedUser)
                 .totalAmount(pricedOrder.getTotalAmount())
                 .status(OrderStatus.PENDING)
@@ -89,8 +99,12 @@ public class OrderService {
 
     @Cacheable(value = "orders", key = "#id", unless = "#result == null")
     public OrderResponseDto getOrderById(Long id) {
+        Long tenantId = tenantContextService.requireTenantId();
         Order order = orderRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new OrderNotFoundException(id));
+        if (!order.getTenant().getId().equals(tenantId)) {
+            throw new OrderNotFoundException(id);
+        }
         return orderMapper.toResponseDto(order);
     }
 
@@ -106,13 +120,15 @@ public class OrderService {
         Sort sort = buildSort(filterDto.getSortBy(), filterDto.getSortOrder());
         Pageable pageable = PageRequest.of(filterDto.getPage(), pageSize, sort);
 
+        Long tenantId = tenantContextService.requireTenantId();
+        TenantRole role = TenantContext.getTenantRole();
+
         // Build Specification for dynamic filtering
-        Specification<Order> spec = Specification.where(null);
+        Specification<Order> spec = Specification.where(OrderSpecification.withTenantId(tenantId));
 
         if (filterDto.getCustomerId() != null) {
             spec = spec.and(OrderSpecification.withCustomerId(filterDto.getCustomerId()));
-        } else {
-            // If no specific customer ID provided, show only current user's orders
+        } else if (role == null || role == TenantRole.CUSTOMER || role == TenantRole.EMPLOYEE) {
             spec = spec.and(OrderSpecification.withCustomerId(authenticatedUser.getId()));
         }
 
@@ -139,7 +155,8 @@ public class OrderService {
     @Transactional
     @CacheEvict(value = "orders", key = "#id", beforeInvocation = false)
     public OrderResponseDto updateOrderStatus(Long id, UpdateOrderStatusDto updateDto, User authenticatedUser) {
-        Order order = orderRepository.findById(id)
+        Long tenantId = tenantContextService.requireTenantId();
+        Order order = orderRepository.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new OrderNotFoundException(id));
 
         // Validate status transition
@@ -170,8 +187,8 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public PaginatedResponse<com.jomariabejo.connectly_api.orders_api.dto.OrderStatusHistoryDto> getStatusHistory(Long orderId, int page, int size) {
-        // Validate order exists
-        orderRepository.findById(orderId)
+        Long tenantId = tenantContextService.requireTenantId();
+        orderRepository.findByIdAndTenantId(orderId, tenantId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
 
         // Enforce max page size

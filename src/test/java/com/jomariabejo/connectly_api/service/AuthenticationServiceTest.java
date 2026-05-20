@@ -1,6 +1,7 @@
 package com.jomariabejo.connectly_api.service;
 
-import com.jomariabejo.connectly_api.common.ApiUrlBuilder;
+import com.jomariabejo.connectly_api.common.FrontendUrlBuilder;
+import com.jomariabejo.connectly_api.model.VerificationToken;
 import com.jomariabejo.connectly_api.dto.LoginUserDto;
 import com.jomariabejo.connectly_api.dto.RegisterUserDto;
 import com.jomariabejo.connectly_api.exception.EmailAlreadyInUseException;
@@ -43,7 +44,7 @@ class AuthenticationServiceTest {
     private final PasswordResetTokenService passwordResetTokenService = mock(PasswordResetTokenService.class);
     private final RateLimitingService rateLimitingService = mock(RateLimitingService.class);
     private final AuditService auditService = mock(AuditService.class);
-    private final ApiUrlBuilder apiUrlBuilder = new ApiUrlBuilder("http://localhost:8080/api");
+    private final FrontendUrlBuilder frontendUrlBuilder = new FrontendUrlBuilder("http://localhost:3000");
 
     private final AuthenticationService authenticationService = new AuthenticationService(
             userRepository,
@@ -54,7 +55,7 @@ class AuthenticationServiceTest {
             passwordResetTokenService,
             rateLimitingService,
             auditService,
-            apiUrlBuilder
+            frontendUrlBuilder
     );
 
     // ==================== SIGNUP TESTS (Existing) ====================
@@ -85,6 +86,14 @@ class AuthenticationServiceTest {
             saved.setId(1L);
             return saved;
         });
+        when(verificationTokenService.createVerificationToken(any(User.class), any(String.class)))
+                .thenAnswer(invocation -> {
+                    VerificationToken vt = new VerificationToken(
+                            invocation.getArgument(1),
+                            invocation.getArgument(0));
+                    vt.setOtp("123456");
+                    return vt;
+                });
 
         User result = authenticationService.signup(request);
 
@@ -186,6 +195,8 @@ class AuthenticationServiceTest {
         User user = validUser();
         user.setEnabled(false);
         user.setVerificationToken("verification-token-123");
+        when(verificationTokenService.getVerificationToken("verification-token-123"))
+                .thenReturn(Optional.empty());
         when(userRepository.findByVerificationToken("verification-token-123"))
                 .thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenReturn(user);
@@ -195,10 +206,13 @@ class AuthenticationServiceTest {
         assertThat(result).isNotNull();
         verify(userRepository).findByVerificationToken("verification-token-123");
         verify(userRepository).save(any(User.class));
+        verify(verificationTokenService).revokeForUser(user);
     }
 
     @Test
     void verifyUserByTokenWithNonExistingTokenReturnsNull() {
+        when(verificationTokenService.getVerificationToken("invalid-token"))
+                .thenReturn(Optional.empty());
         when(userRepository.findByVerificationToken("invalid-token"))
                 .thenReturn(Optional.empty());
 

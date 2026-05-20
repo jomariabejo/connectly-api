@@ -26,7 +26,9 @@ class EmailServiceTest {
 
         assertThatCode(() -> emailService.sendVerificationEmail(
                 "test@example.com",
-                "http://localhost:8080/api/v1/auth/verify?token=test-token"
+                "http://localhost:3000/verify-email?token=test-token",
+                "123456",
+                "http://localhost:3000/check-email"
         )).doesNotThrowAnyException();
     }
 
@@ -38,7 +40,9 @@ class EmailServiceTest {
 
         assertThatThrownBy(() -> emailService.sendVerificationEmail(
                 "test@example.com",
-                "http://localhost:8080/api/v1/auth/verify?token=test-token"
+                "http://localhost:3000/verify-email?token=test-token",
+                "123456",
+                "http://localhost:3000/check-email"
         )).isInstanceOf(RuntimeException.class)
                 .hasMessage("Failed to send verification email");
     }

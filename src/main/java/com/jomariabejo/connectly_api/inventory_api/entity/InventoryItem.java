@@ -1,7 +1,11 @@
 package com.jomariabejo.connectly_api.inventory_api.entity;
 
+import com.jomariabejo.connectly_api.tenant_api.entity.Tenant;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -21,7 +25,7 @@ import java.time.LocalDateTime;
 @Table(
         name = "inventory_items",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_inventory_items_sku", columnNames = "sku")
+                @UniqueConstraint(name = "uk_inventory_items_tenant_sku", columnNames = {"tenant_id", "sku"})
         }
 )
 @Getter
@@ -33,6 +37,10 @@ public class InventoryItem {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tenant_id", nullable = false)
+    private Tenant tenant;
 
     @Column(nullable = false, length = 120)
     private String sku;

@@ -23,6 +23,7 @@ public class EmailService {
     private static final String VERIFICATION_TEMPLATE = "assets/emails/connectly-registration.hbs";
     private static final String PASSWORD_RESET_LINK_TEMPLATE = "assets/emails/password-reset-link.hbs";
     private static final String PASSWORD_RESET_OTP_TEMPLATE = "assets/emails/password-reset-otp.hbs";
+    private static final String INVITE_TEMPLATE = "assets/emails/tenant-invite.hbs";
 
     private final JavaMailSender mailSender;
     private static final Logger logger = LoggerFactory.getLogger(EmailService.class);
@@ -30,24 +31,47 @@ public class EmailService {
     @Value("${app.mail.fail-on-error:false}")
     private boolean failOnError;
 
+    @Value("${app.mail.mailpit-ui-url:http://localhost:8025}")
+    private String mailpitUiUrl;
+
     public EmailService(JavaMailSender mailSender) {
         this.mailSender = mailSender;
     }
 
-    public void sendVerificationEmail(String toEmail, String link) {
+    public void sendVerificationEmail(String toEmail, String link, String otp, String checkEmailUrl) {
         logger.info("Sending verification email to: {}", toEmail);
+        String otpSection = buildVerificationOtpSection(otp, checkEmailUrl);
+        String plainOtp = otp != null && !otp.isBlank()
+                ? "\n\nYour verification code: " + otp + "\n"
+                : "";
         sendTemplatedEmail(
                 toEmail,
                 "Complete your Connectly registration",
                 VERIFICATION_TEMPLATE,
-                "To confirm your Connectly account, open this link: " + link,
+                "To confirm your Connectly account, open this link: " + link + plainOtp,
                 Map.of(
                         "preheader", "Confirm your account and start using Connectly.",
-                        "verificationLink", link
+                        "verificationLink", link,
+                        "verificationOtp", otp != null ? otp : "",
+                        "verificationOtpSection", otpSection
                 ),
                 "verification email",
-                "Verification link: " + link
+                "Verification link: " + link + plainOtp + " | Mailpit UI: " + mailpitUiUrl
         );
+    }
+
+    private String buildVerificationOtpSection(String otp, String checkEmailUrl) {
+        if (otp == null || otp.isBlank()) {
+            return "";
+        }
+        String safeOtp = escapeHtml(otp);
+        String safeUrl = escapeHtml(checkEmailUrl);
+        return "<div class=\"otp-wrap\">"
+                + "<p class=\"otp-label\">Your verification code</p>"
+                + "<p class=\"otp-code\">" + safeOtp + "</p>"
+                + "<p class=\"otp-hint\">Enter this code at <a href=\"" + safeUrl + "\">verify your account</a> "
+                + "or use the button below.</p>"
+                + "</div>";
     }
 
     public void sendPasswordResetEmailWithLink(String toEmail, String resetLink) {
@@ -71,6 +95,29 @@ public class EmailService {
                 ),
                 "password reset email",
                 "Password reset link: " + resetLink
+        );
+    }
+
+    public void sendTenantInviteEmail(String toEmail, String tenantName, String roleLabel, String inviteLink) {
+        String plainText = "You have been invited to join " + tenantName + " on Connectly as a " + roleLabel + ".\n\n"
+                + "Complete your registration here:\n"
+                + inviteLink + "\n\n"
+                + "This invitation link expires in 7 days.";
+
+        logger.info("Sending tenant invite email to: {}", toEmail);
+        sendTemplatedEmail(
+                toEmail,
+                "You're invited to join " + tenantName + " on Connectly",
+                INVITE_TEMPLATE,
+                plainText,
+                Map.of(
+                        "preheader", "Accept your invitation to join " + tenantName + ".",
+                        "tenantName", tenantName,
+                        "roleLabel", roleLabel,
+                        "inviteLink", inviteLink
+                ),
+                "tenant invite email",
+                "Invite link: " + inviteLink
         );
     }
 
@@ -133,9 +180,10 @@ public class EmailService {
             }
 
             logger.warn(
-                    "Failed to send {}. Continuing because app.mail.fail-on-error=false. {}",
+                    "Failed to send {}. Continuing because app.mail.fail-on-error=false. {} | Local dev: open Mailpit at {}",
                     emailType,
                     fallbackContent,
+                    mailpitUiUrl,
                     e
             );
         }

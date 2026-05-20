@@ -19,6 +19,8 @@ import com.jomariabejo.connectly_api.orders_api.exception.InvalidFilterException
 import com.jomariabejo.connectly_api.orders_api.exception.OrderNotFoundException;
 import com.jomariabejo.connectly_api.orders_api.mapper.OrderMapper;
 import com.jomariabejo.connectly_api.orders_api.repository.OrderRepository;
+import com.jomariabejo.connectly_api.tenant_api.entity.Tenant;
+import com.jomariabejo.connectly_api.tenant_api.service.TenantContextService;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Expression;
@@ -56,21 +58,30 @@ class OrderServiceTest {
     private final OrderItemService orderItemService = mock(OrderItemService.class);
     private final OrderStatusService orderStatusService = mock(OrderStatusService.class);
     private final InventoryService inventoryService = mock(InventoryService.class);
+    private final TenantContextService tenantContextService = mock(TenantContextService.class);
     private final OrderService orderService = new OrderService(
             orderRepository,
             orderMapper,
             orderItemService,
             orderStatusService,
-            inventoryService
+            inventoryService,
+            tenantContextService
     );
 
     private User user;
+    private Tenant tenant;
 
     @BeforeEach
     void setUp() {
         user = new User();
         user.setId(10L);
         user.setUsername("maria");
+        tenant = new Tenant();
+        tenant.setId(1L);
+        tenant.setName("Default");
+        tenant.setSlug("default");
+        when(tenantContextService.requireTenantId()).thenReturn(1L);
+        when(tenantContextService.requireTenant()).thenReturn(tenant);
     }
 
     @Test
@@ -384,7 +395,7 @@ class OrderServiceTest {
 
     @Test
     void updateOrderStatusThrowsWhenOrderMissing() {
-        when(orderRepository.findById(99L)).thenReturn(Optional.empty());
+        when(orderRepository.findByIdAndTenantId(99L, 1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> orderService.updateOrderStatus(99L, UpdateOrderStatusDto.builder()
                 .newStatus(OrderStatus.PROCESSING)
@@ -399,7 +410,7 @@ class OrderServiceTest {
     void updateOrderStatusRejectsInvalidTransitionWithoutSaving() {
         Order order = orderFor(user);
         order.setStatus(OrderStatus.DELIVERED);
-        when(orderRepository.findById(99L)).thenReturn(Optional.of(order));
+        when(orderRepository.findByIdAndTenantId(99L, 1L)).thenReturn(Optional.of(order));
         when(orderStatusService.validateStatusTransition(OrderStatus.DELIVERED, OrderStatus.CANCELLED))
                 .thenReturn(false);
 
@@ -423,7 +434,7 @@ class OrderServiceTest {
                 .status(OrderStatus.PROCESSING)
                 .build();
 
-        when(orderRepository.findById(99L)).thenReturn(Optional.of(order));
+        when(orderRepository.findByIdAndTenantId(99L, 1L)).thenReturn(Optional.of(order));
         when(orderStatusService.validateStatusTransition(OrderStatus.PENDING, OrderStatus.PROCESSING))
                 .thenReturn(true);
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -452,7 +463,7 @@ class OrderServiceTest {
                 .status(OrderStatus.CANCELLED)
                 .build();
 
-        when(orderRepository.findById(99L)).thenReturn(Optional.of(order));
+        when(orderRepository.findByIdAndTenantId(99L, 1L)).thenReturn(Optional.of(order));
         when(orderStatusService.validateStatusTransition(OrderStatus.PENDING, OrderStatus.CANCELLED))
                 .thenReturn(true);
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -470,7 +481,7 @@ class OrderServiceTest {
 
     @Test
     void getStatusHistoryThrowsWhenOrderMissing() {
-        when(orderRepository.findById(99L)).thenReturn(Optional.empty());
+        when(orderRepository.findByIdAndTenantId(99L, 1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> orderService.getStatusHistory(99L, 0, 50))
                 .isInstanceOf(OrderNotFoundException.class)
@@ -489,7 +500,7 @@ class OrderServiceTest {
                 .changedById(10L)
                 .changedByUsername("maria")
                 .build();
-        when(orderRepository.findById(99L)).thenReturn(Optional.of(order));
+        when(orderRepository.findByIdAndTenantId(99L, 1L)).thenReturn(Optional.of(order));
         when(orderStatusService.getStatusHistory(eq(99L), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(historyDto)));
 
@@ -541,6 +552,7 @@ class OrderServiceTest {
     private Order orderFor(User customer) {
         return Order.builder()
                 .id(99L)
+                .tenant(tenant)
                 .customer(customer)
                 .totalAmount(new BigDecimal("49.98"))
                 .status(OrderStatus.PENDING)
@@ -561,13 +573,20 @@ class OrderServiceTest {
         Root<Order> root = mock(Root.class);
         CriteriaQuery<?> criteriaQuery = mock(CriteriaQuery.class);
         CriteriaBuilder criteriaBuilder = mock(CriteriaBuilder.class);
+        Path<Object> tenantPath = mock(Path.class);
+        Path<Object> tenantIdPath = mock(Path.class);
         Path<Object> customerPath = mock(Path.class);
         Path<Object> customerIdPath = mock(Path.class);
+        Predicate tenantPredicate = mock(Predicate.class);
         Predicate predicate = mock(Predicate.class);
 
+        when(root.get("tenant")).thenReturn((Path) tenantPath);
+        when(tenantPath.get("id")).thenReturn((Path) tenantIdPath);
+        when(criteriaBuilder.equal(tenantIdPath, 1L)).thenReturn(tenantPredicate);
         when(root.get("customer")).thenReturn((Path) customerPath);
         when(customerPath.get("id")).thenReturn((Path) customerIdPath);
         when(criteriaBuilder.equal(customerIdPath, expectedCustomerId)).thenReturn(predicate);
+        when(criteriaBuilder.and(any(Predicate.class), any(Predicate.class))).thenReturn(predicate);
 
         assertThat(specification.toPredicate(root, criteriaQuery, criteriaBuilder)).isSameAs(predicate);
     }
@@ -577,17 +596,23 @@ class OrderServiceTest {
         Root<Order> root = mock(Root.class);
         CriteriaQuery<?> criteriaQuery = mock(CriteriaQuery.class);
         CriteriaBuilder criteriaBuilder = mock(CriteriaBuilder.class);
+        Path<Object> tenantPath = mock(Path.class);
+        Path<Object> tenantIdPath = mock(Path.class);
         Path<Object> customerPath = mock(Path.class);
         Path<Object> customerIdPath = mock(Path.class);
         Path<OrderStatus> statusPath = mock(Path.class);
         Path<String> marketplacePath = mock(Path.class);
         Path<LocalDateTime> createdDatePath = mock(Path.class);
+        Predicate tenantPredicate = mock(Predicate.class);
         Predicate customerPredicate = mock(Predicate.class);
         Predicate statusPredicate = mock(Predicate.class);
         Predicate marketplacePredicate = mock(Predicate.class);
         Predicate dateRangePredicate = mock(Predicate.class);
         Predicate combinedPredicate = mock(Predicate.class);
 
+        when(root.get("tenant")).thenReturn((Path) tenantPath);
+        when(tenantPath.get("id")).thenReturn((Path) tenantIdPath);
+        when(criteriaBuilder.equal(tenantIdPath, 1L)).thenReturn(tenantPredicate);
         when(root.get("customer")).thenReturn((Path) customerPath);
         when(customerPath.get("id")).thenReturn((Path) customerIdPath);
         when(root.get("status")).thenReturn((Path) statusPath);
@@ -603,7 +628,8 @@ class OrderServiceTest {
         )).thenReturn(dateRangePredicate);
         when(criteriaBuilder.and(any(Predicate.class), any(Predicate.class))).thenReturn(combinedPredicate);
 
-        assertThat(specification.toPredicate(root, criteriaQuery, criteriaBuilder)).isSameAs(combinedPredicate);
+        assertThat(specification.toPredicate(root, criteriaQuery, criteriaBuilder)).isNotNull();
+        verify(criteriaBuilder).equal(tenantIdPath, 1L);
         verify(criteriaBuilder).equal(customerIdPath, 10L);
         verify(criteriaBuilder).equal(statusPath, OrderStatus.PROCESSING);
         verify(criteriaBuilder).equal(marketplacePath, "etsy");

@@ -7,6 +7,8 @@ import com.jomariabejo.connectly_api.orders_api.dto.OrderResponseDto;
 import com.jomariabejo.connectly_api.orders_api.dto.PaginatedResponse;
 import com.jomariabejo.connectly_api.orders_api.dto.UpdateOrderStatusDto;
 import com.jomariabejo.connectly_api.orders_api.service.OrderService;
+import com.jomariabejo.connectly_api.tenant_api.annotation.RequiresProduct;
+import com.jomariabejo.connectly_api.tenant_api.entity.ProductCode;
 import com.jomariabejo.connectly_api.service.AuthenticationService;
 import com.jomariabejo.connectly_api.model.User;
 import jakarta.validation.Valid;
@@ -19,6 +21,7 @@ import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/v1/orders")
+@RequiresProduct(ProductCode.ORDER_MANAGEMENT)
 public class OrderController {
 
     private final OrderService orderService;

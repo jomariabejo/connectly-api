@@ -18,6 +18,8 @@ import com.jomariabejo.connectly_api.inventory_api.repository.InventoryItemRepos
 import com.jomariabejo.connectly_api.inventory_api.repository.InventoryMovementRepository;
 import com.jomariabejo.connectly_api.inventory_api.repository.InventoryReservationRepository;
 import com.jomariabejo.connectly_api.orders_api.dto.OrderItemDto;
+import com.jomariabejo.connectly_api.tenant_api.entity.Tenant;
+import com.jomariabejo.connectly_api.tenant_api.service.TenantContextService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,20 +35,23 @@ public class InventoryService {
     private final InventoryReservationRepository reservationRepository;
     private final InventoryMovementRepository movementRepository;
     private final InventoryMapper inventoryMapper;
+    private final TenantContextService tenantContextService;
 
     public InventoryService(InventoryItemRepository inventoryItemRepository,
                             InventoryReservationRepository reservationRepository,
                             InventoryMovementRepository movementRepository,
-                            InventoryMapper inventoryMapper) {
+                            InventoryMapper inventoryMapper,
+                            TenantContextService tenantContextService) {
         this.inventoryItemRepository = inventoryItemRepository;
         this.reservationRepository = reservationRepository;
         this.movementRepository = movementRepository;
         this.inventoryMapper = inventoryMapper;
+        this.tenantContextService = tenantContextService;
     }
 
     @Transactional(readOnly = true)
     public List<InventoryItemDto> getActiveInventory() {
-        return inventoryItemRepository.findByActiveTrueOrderByNameAsc()
+        return inventoryItemRepository.findByTenantIdAndActiveTrueOrderByNameAsc(tenantContextService.requireTenantId())
                 .stream()
                 .map(inventoryMapper::toDto)
                 .collect(Collectors.toList());
@@ -54,7 +59,8 @@ public class InventoryService {
 
     @Transactional(readOnly = true)
     public InventoryItemDto getActiveInventoryItem(String sku) {
-        InventoryItem item = inventoryItemRepository.findBySkuAndActiveTrue(normalizeSku(sku))
+        InventoryItem item = inventoryItemRepository.findByTenantIdAndSkuAndActiveTrue(
+                        tenantContextService.requireTenantId(), normalizeSku(sku))
                 .orElseThrow(() -> new InventoryNotFoundException(normalizeSku(sku)));
         return inventoryMapper.toDto(item);
     }
@@ -62,10 +68,13 @@ public class InventoryService {
     @Transactional
     public InventoryItemDto createInventoryItem(CreateInventoryItemRequest request) {
         String sku = normalizeSku(request.getSku());
-        if (inventoryItemRepository.existsBySku(sku)) {
+        Long tenantId = tenantContextService.requireTenantId();
+        Tenant tenant = tenantContextService.requireTenant();
+        if (inventoryItemRepository.existsByTenantIdAndSku(tenantId, sku)) {
             throw new InvalidInventoryRequestException("Inventory item with SKU " + sku + " already exists");
         }
         InventoryItem item = InventoryItem.builder()
+                .tenant(tenant)
                 .sku(sku)
                 .name(requireText(request.getName(), "Name is required"))
                 .description(request.getDescription())
@@ -204,7 +213,8 @@ public class InventoryService {
     private OrderItemDto priceOrderItem(OrderItemDto dto) {
         String sku = normalizeSku(dto.getSku());
         int quantity = requirePositive(dto.getQuantity(), "Quantity must be greater than 0");
-        InventoryItem item = inventoryItemRepository.findBySkuAndActiveTrue(sku)
+        InventoryItem item = inventoryItemRepository.findByTenantIdAndSkuAndActiveTrue(
+                        tenantContextService.requireTenantId(), sku)
                 .orElseThrow(() -> new InventoryNotFoundException(sku));
         return OrderItemDto.builder()
                 .sku(sku)
@@ -217,7 +227,8 @@ public class InventoryService {
 
     private InventoryItem findItemForUpdate(String sku) {
         String normalizedSku = normalizeSku(sku);
-        return inventoryItemRepository.findWithLockBySku(normalizedSku)
+        return inventoryItemRepository.findWithLockByTenantIdAndSku(
+                        tenantContextService.requireTenantId(), normalizedSku)
                 .orElseThrow(() -> new InventoryNotFoundException(normalizedSku));
     }
 

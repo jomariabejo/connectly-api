@@ -47,4 +47,10 @@ public class OrderSpecification {
                 ? null
                 : cb.lessThanOrEqualTo(root.get("createdDate"), dateTo.atTime(23, 59, 59));
     }
+
+    public static Specification<Order> withTenantId(Long tenantId) {
+        return (root, query, cb) -> tenantId == null
+                ? null
+                : cb.equal(root.get("tenant").get("id"), tenantId);
+    }
 }

@@ -6,6 +6,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -27,6 +30,39 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidCredentialsException.class)
     public ResponseEntity<ErrorResponse> handleInvalidCredentialsException(InvalidCredentialsException ex) {
         return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Invalid credentials", ex);
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleBadCredentialsException(BadCredentialsException ex) {
+        logger.debug("Authentication failed: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse(
+                HttpStatus.UNAUTHORIZED.value(),
+                "Invalid credentials",
+                "Invalid email or password.",
+                System.currentTimeMillis()
+        ));
+    }
+
+    @ExceptionHandler(UsernameNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleUsernameNotFoundException(UsernameNotFoundException ex) {
+        logger.debug("User not found during authentication: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse(
+                HttpStatus.UNAUTHORIZED.value(),
+                "Unauthorized",
+                "Invalid or expired session. Please sign in again.",
+                System.currentTimeMillis()
+        ));
+    }
+
+    @ExceptionHandler(DisabledException.class)
+    public ResponseEntity<ErrorResponse> handleDisabledException(DisabledException ex) {
+        logger.debug("Disabled account login attempt: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorResponse(
+                HttpStatus.FORBIDDEN.value(),
+                "Account not activated",
+                "Please verify your email before signing in.",
+                System.currentTimeMillis()
+        ));
     }
 
     @ExceptionHandler(PostNotFoundException.class)
@@ -87,6 +123,58 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(UnauthorizedAccessException.class)
     public ResponseEntity<ErrorResponse> handleUnauthorizedAccessException(UnauthorizedAccessException ex) {
         return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Unauthorized access", ex);
+    }
+
+    @ExceptionHandler(com.jomariabejo.connectly_api.tenant_api.exception.TenantNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleTenantNotFoundException(com.jomariabejo.connectly_api.tenant_api.exception.TenantNotFoundException ex) {
+        return buildErrorResponse(HttpStatus.NOT_FOUND, "Tenant not found", ex);
+    }
+
+    @ExceptionHandler(com.jomariabejo.connectly_api.tenant_api.exception.TenantRegistrationException.class)
+    public ResponseEntity<ErrorResponse> handleTenantRegistrationException(
+            com.jomariabejo.connectly_api.tenant_api.exception.TenantRegistrationException ex) {
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "Registration failed", ex);
+    }
+
+    @ExceptionHandler(InvalidVerificationException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidVerificationException(InvalidVerificationException ex) {
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "Verification failed", ex);
+    }
+
+    @ExceptionHandler(com.jomariabejo.connectly_api.tenant_api.exception.InvalidInvitationException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidInvitationException(
+            com.jomariabejo.connectly_api.tenant_api.exception.InvalidInvitationException ex) {
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "Invalid invitation", ex);
+    }
+
+    @ExceptionHandler(com.jomariabejo.connectly_api.tenant_api.exception.TenantAccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleTenantAccessDeniedException(com.jomariabejo.connectly_api.tenant_api.exception.TenantAccessDeniedException ex) {
+        return buildErrorResponse(HttpStatus.FORBIDDEN, "Tenant access denied", ex);
+    }
+
+    @ExceptionHandler(com.jomariabejo.connectly_api.tenant_api.exception.ProductNotSubscribedException.class)
+    public ResponseEntity<ErrorResponse> handleProductNotSubscribedException(com.jomariabejo.connectly_api.tenant_api.exception.ProductNotSubscribedException ex) {
+        return buildErrorResponse(HttpStatus.FORBIDDEN, "Product not subscribed", ex);
+    }
+
+    @ExceptionHandler(com.jomariabejo.connectly_api.crm_api.exception.CrmCustomerNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleCrmCustomerNotFoundException(com.jomariabejo.connectly_api.crm_api.exception.CrmCustomerNotFoundException ex) {
+        return buildErrorResponse(HttpStatus.NOT_FOUND, "CRM customer not found", ex);
+    }
+
+    @ExceptionHandler(com.jomariabejo.connectly_api.ticketing_api.exception.TicketNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleTicketNotFoundException(com.jomariabejo.connectly_api.ticketing_api.exception.TicketNotFoundException ex) {
+        return buildErrorResponse(HttpStatus.NOT_FOUND, "Ticket not found", ex);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex) {
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "Invalid request", ex);
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalStateException(IllegalStateException ex) {
+        return buildErrorResponse(HttpStatus.CONFLICT, "Invalid state", ex);
     }
 
     @ExceptionHandler(AccountDeletionScheduledException.class)

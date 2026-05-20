@@ -5,6 +5,8 @@ import com.jomariabejo.connectly_api.inventory_api.dto.CreateInventoryItemReques
 import com.jomariabejo.connectly_api.inventory_api.dto.InventoryItemDto;
 import com.jomariabejo.connectly_api.inventory_api.dto.UpdateInventoryItemRequest;
 import com.jomariabejo.connectly_api.inventory_api.service.InventoryService;
+import com.jomariabejo.connectly_api.tenant_api.annotation.RequiresProduct;
+import com.jomariabejo.connectly_api.tenant_api.entity.ProductCode;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +22,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/v1")
+@RequiresProduct(ProductCode.INVENTORY_MANAGEMENT)
 public class InventoryController {
     private final InventoryService inventoryService;
 

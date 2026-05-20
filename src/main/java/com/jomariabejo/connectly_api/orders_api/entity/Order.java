@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.payments_api.entity.PaymentStatus;
+import com.jomariabejo.connectly_api.tenant_api.entity.Tenant;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -27,6 +28,10 @@ public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tenant_id", nullable = false)
+    private Tenant tenant;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id", nullable = false)

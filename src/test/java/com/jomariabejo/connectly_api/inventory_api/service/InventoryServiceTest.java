@@ -18,6 +18,9 @@ import com.jomariabejo.connectly_api.inventory_api.repository.InventoryItemRepos
 import com.jomariabejo.connectly_api.inventory_api.repository.InventoryMovementRepository;
 import com.jomariabejo.connectly_api.inventory_api.repository.InventoryReservationRepository;
 import com.jomariabejo.connectly_api.orders_api.dto.OrderItemDto;
+import com.jomariabejo.connectly_api.tenant_api.entity.Tenant;
+import com.jomariabejo.connectly_api.tenant_api.service.TenantContextService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -38,16 +41,26 @@ class InventoryServiceTest {
     private final InventoryItemRepository inventoryItemRepository = mock(InventoryItemRepository.class);
     private final InventoryReservationRepository reservationRepository = mock(InventoryReservationRepository.class);
     private final InventoryMovementRepository movementRepository = mock(InventoryMovementRepository.class);
+    private final TenantContextService tenantContextService = mock(TenantContextService.class);
     private final InventoryService inventoryService = new InventoryService(
             inventoryItemRepository,
             reservationRepository,
             movementRepository,
-            new InventoryMapper()
+            new InventoryMapper(),
+            tenantContextService
     );
+
+    @BeforeEach
+    void setUp() {
+        Tenant tenant = new Tenant();
+        tenant.setId(1L);
+        when(tenantContextService.requireTenantId()).thenReturn(1L);
+        when(tenantContextService.requireTenant()).thenReturn(tenant);
+    }
 
     @Test
     void createInventoryItemNormalizesFieldsAndRecordsInitialMovement() {
-        when(inventoryItemRepository.existsBySku("NOTEBOOK-1")).thenReturn(false);
+        when(inventoryItemRepository.existsByTenantIdAndSku(1L, "NOTEBOOK-1")).thenReturn(false);
         when(inventoryItemRepository.save(any(InventoryItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         InventoryItemDto response = inventoryService.createInventoryItem(CreateInventoryItemRequest.builder()
@@ -72,7 +85,7 @@ class InventoryServiceTest {
 
     @Test
     void createInventoryItemRejectsDuplicateSku() {
-        when(inventoryItemRepository.existsBySku("NOTEBOOK-1")).thenReturn(true);
+        when(inventoryItemRepository.existsByTenantIdAndSku(1L, "NOTEBOOK-1")).thenReturn(true);
 
         assertThatThrownBy(() -> inventoryService.createInventoryItem(CreateInventoryItemRequest.builder()
                 .sku("NOTEBOOK-1")
@@ -91,7 +104,7 @@ class InventoryServiceTest {
     @Test
     void getActiveInventoryOnlyReturnsActiveItems() {
         InventoryItem item = item("NOTEBOOK-1", 10, 2, true);
-        when(inventoryItemRepository.findByActiveTrueOrderByNameAsc()).thenReturn(List.of(item));
+        when(inventoryItemRepository.findByTenantIdAndActiveTrueOrderByNameAsc(1L)).thenReturn(List.of(item));
 
         List<InventoryItemDto> response = inventoryService.getActiveInventory();
 
@@ -102,7 +115,7 @@ class InventoryServiceTest {
 
     @Test
     void getActiveInventoryItemThrowsWhenMissingOrInactive() {
-        when(inventoryItemRepository.findBySkuAndActiveTrue("NOTEBOOK-1")).thenReturn(Optional.empty());
+        when(inventoryItemRepository.findByTenantIdAndSkuAndActiveTrue(1L, "NOTEBOOK-1")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> inventoryService.getActiveInventoryItem("notebook-1"))
                 .isInstanceOf(InventoryNotFoundException.class)
@@ -112,7 +125,7 @@ class InventoryServiceTest {
     @Test
     void updateInventoryItemRejectsOnHandBelowReservedQuantity() {
         InventoryItem item = item("NOTEBOOK-1", 10, 4, true);
-        when(inventoryItemRepository.findWithLockBySku("NOTEBOOK-1")).thenReturn(Optional.of(item));
+        when(inventoryItemRepository.findWithLockByTenantIdAndSku(1L, "NOTEBOOK-1")).thenReturn(Optional.of(item));
 
         assertThatThrownBy(() -> inventoryService.updateInventoryItem("NOTEBOOK-1", UpdateInventoryItemRequest.builder()
                 .onHandQuantity(3)
@@ -126,7 +139,7 @@ class InventoryServiceTest {
     @Test
     void adjustInventoryUpdatesOnHandAndRecordsMovement() {
         InventoryItem item = item("NOTEBOOK-1", 10, 2, true);
-        when(inventoryItemRepository.findWithLockBySku("NOTEBOOK-1")).thenReturn(Optional.of(item));
+        when(inventoryItemRepository.findWithLockByTenantIdAndSku(1L, "NOTEBOOK-1")).thenReturn(Optional.of(item));
         when(inventoryItemRepository.save(any(InventoryItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         InventoryItemDto response = inventoryService.adjustInventory("notebook-1", AdjustInventoryRequest.builder()
@@ -146,7 +159,7 @@ class InventoryServiceTest {
 
     @Test
     void priceOrderItemsUsesInventoryPriceAndComputesTotal() {
-        when(inventoryItemRepository.findBySkuAndActiveTrue("NOTEBOOK-1")).thenReturn(Optional.of(item("NOTEBOOK-1", 10, 0, true)));
+        when(inventoryItemRepository.findByTenantIdAndSkuAndActiveTrue(1L, "NOTEBOOK-1")).thenReturn(Optional.of(item("NOTEBOOK-1", 10, 0, true)));
 
         PricedOrderItem pricedOrder = inventoryService.priceOrderItems(List.of(OrderItemDto.builder()
                 .sku("notebook-1")
@@ -167,7 +180,7 @@ class InventoryServiceTest {
         InventoryItem item = item("NOTEBOOK-1", 10, 2, true);
         when(reservationRepository.findByOrderId(99L)).thenReturn(List.of());
         when(reservationRepository.findByOrderIdAndSku(99L, "NOTEBOOK-1")).thenReturn(Optional.empty());
-        when(inventoryItemRepository.findWithLockBySku("NOTEBOOK-1")).thenReturn(Optional.of(item));
+        when(inventoryItemRepository.findWithLockByTenantIdAndSku(1L, "NOTEBOOK-1")).thenReturn(Optional.of(item));
 
         inventoryService.reserveOrderItems(99L, List.of(OrderItemDto.builder()
                 .sku("NOTEBOOK-1")
@@ -191,7 +204,7 @@ class InventoryServiceTest {
     void reserveOrderItemsRejectsInactiveSkuAndInsufficientStock() {
         InventoryItem inactiveItem = item("NOTEBOOK-1", 10, 0, false);
         when(reservationRepository.findByOrderId(99L)).thenReturn(List.of());
-        when(inventoryItemRepository.findWithLockBySku("NOTEBOOK-1")).thenReturn(Optional.of(inactiveItem));
+        when(inventoryItemRepository.findWithLockByTenantIdAndSku(1L, "NOTEBOOK-1")).thenReturn(Optional.of(inactiveItem));
 
         assertThatThrownBy(() -> inventoryService.reserveOrderItems(99L, List.of(OrderItemDto.builder()
                 .sku("NOTEBOOK-1")
@@ -201,7 +214,7 @@ class InventoryServiceTest {
                 .hasMessageContaining("inactive");
 
         InventoryItem lowStockItem = item("PEN-1", 3, 2, true);
-        when(inventoryItemRepository.findWithLockBySku("PEN-1")).thenReturn(Optional.of(lowStockItem));
+        when(inventoryItemRepository.findWithLockByTenantIdAndSku(1L, "PEN-1")).thenReturn(Optional.of(lowStockItem));
 
         assertThatThrownBy(() -> inventoryService.reserveOrderItems(99L, List.of(OrderItemDto.builder()
                 .sku("PEN-1")
@@ -241,7 +254,7 @@ class InventoryServiceTest {
         when(reservationRepository.findByOrderIdAndStatus(99L, InventoryReservationStatus.RESERVED))
                 .thenReturn(List.of(reservation))
                 .thenReturn(List.of());
-        when(inventoryItemRepository.findWithLockBySku("NOTEBOOK-1")).thenReturn(Optional.of(item));
+        when(inventoryItemRepository.findWithLockByTenantIdAndSku(1L, "NOTEBOOK-1")).thenReturn(Optional.of(item));
 
         inventoryService.commitReservationsForOrder(99L, 1L);
         inventoryService.commitReservationsForOrder(99L, 1L);
@@ -263,7 +276,7 @@ class InventoryServiceTest {
         InventoryItem item = item("NOTEBOOK-1", 10, 2, true);
         when(reservationRepository.findByOrderIdAndStatus(99L, InventoryReservationStatus.RESERVED))
                 .thenReturn(List.of(reservation));
-        when(inventoryItemRepository.findWithLockBySku("NOTEBOOK-1")).thenReturn(Optional.of(item));
+        when(inventoryItemRepository.findWithLockByTenantIdAndSku(1L, "NOTEBOOK-1")).thenReturn(Optional.of(item));
 
         inventoryService.releaseReservationsForOrder(99L, "Payment status FAILED");
 

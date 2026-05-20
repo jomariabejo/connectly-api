@@ -132,6 +132,36 @@
             line-height: 1.55;
             margin-bottom: 22px;
         }
+        .otp-wrap {
+            margin: 0 0 24px;
+            padding: 20px 22px;
+            background: #f5f7fc;
+            border: 1px solid #dce1eb;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .otp-label {
+            margin: 0 0 10px;
+            color: #586173;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+        .otp-code {
+            margin: 0 0 12px;
+            color: #1b2a6b;
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: 0.28em;
+            font-family: "Courier New", Courier, monospace;
+        }
+        .otp-hint {
+            margin: 0;
+            color: #586173;
+            font-size: 14px;
+            line-height: 1.55;
+        }
         .link-wrap {
             word-break: break-word;
             color: #586173;
@@ -288,7 +318,9 @@
                         <!-- MAIN CONTENT -->
                         <div class="content">
                             <h1>Welcome to Connectly.</h1>
-                            <p>Your account is almost ready. Confirm your email address to unlock your profile, circles, posts, and the people waiting to connect with you.</p>
+                            <p>Your account is almost ready. Confirm your email address to activate your account and sign in.</p>
+
+                            {{verificationOtpSection}}
 
                             <div class="cta-wrap">
                                 <a class="cta" href="{{verificationLink}}">Verify My Email</a>
