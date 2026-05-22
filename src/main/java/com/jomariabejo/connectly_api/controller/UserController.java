@@ -3,6 +3,9 @@ package com.jomariabejo.connectly_api.controller;
 import com.jomariabejo.connectly_api.dto.*;
 import com.jomariabejo.connectly_api.exception.AccountDeletionScheduledException;
 import com.jomariabejo.connectly_api.exception.AccountReactivationFailedException;
+import com.jomariabejo.connectly_api.dto.user.UserResponseDto;
+import com.jomariabejo.connectly_api.dto.user.UserSettingsResponseDto;
+import com.jomariabejo.connectly_api.mapper.UserMapper;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.model.UserSettings;
 import com.jomariabejo.connectly_api.model.VerificationToken;
@@ -33,33 +36,36 @@ public class UserController {
     private final AuthenticationService authenticationService;
     private final VerificationTokenRepository verificationTokenRepository;
     private final UserSettingsService userSettingsService;
+    private final UserMapper userMapper;
 
     public UserController(UserService userService, 
                          AuthenticationService authenticationService,
                          VerificationTokenRepository verificationTokenRepository,
-                         UserSettingsService userSettingsService) {
+                         UserSettingsService userSettingsService,
+                         UserMapper userMapper) {
         this.userService = userService;
         this.authenticationService = authenticationService;
         this.verificationTokenRepository = verificationTokenRepository;
         this.userSettingsService = userSettingsService;
+        this.userMapper = userMapper;
     }
 
     @GetMapping("/me")
-    public ResponseEntity<User> authenticatedUser() {
+    public ResponseEntity<UserResponseDto> authenticatedUser() {
         User currentUser = authenticationService.getAuthenticatedUser();
-        return ResponseEntity.ok(currentUser);
+        return ResponseEntity.ok(userMapper.toResponseDto(currentUser));
     }
 
     @GetMapping("/")
-    public ResponseEntity<List<User>> allUsers() {
+    public ResponseEntity<List<UserResponseDto>> allUsers() {
         List<User> users = userService.allUsers();
 
-        return ResponseEntity.ok(users);
+        return ResponseEntity.ok(userMapper.toResponseDtos(users));
     }
 
     // Pagination endpoints
     @GetMapping("/paginated")
-    public ResponseEntity<PaginationDto<User>> getAllUsersPaginated(
+    public ResponseEntity<PaginationDto<UserResponseDto>> getAllUsersPaginated(
             @PageableDefault(size = 10, page = 0, sort = "id", direction = Sort.Direction.ASC) Pageable pageable,
             @RequestParam(required = false) String username,
             @RequestParam(required = false) String email,
@@ -75,7 +81,7 @@ public class UserController {
             result = userService.getAllUsersPaginated(pageable);
         }
 
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(userMapper.toResponseDto(result));
     }
 
     private boolean hasFilters(UserFilterDto filterDto) {
@@ -234,9 +240,9 @@ public class UserController {
      */
     @GetMapping("/admin/users/scheduled-deletion")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<User>> getUsersScheduledForDeletion() {
+    public ResponseEntity<List<UserResponseDto>> getUsersScheduledForDeletion() {
         List<User> scheduledUsers = userService.getUsersScheduledForDeletion();
-        return ResponseEntity.ok(scheduledUsers);
+        return ResponseEntity.ok(userMapper.toResponseDtos(scheduledUsers));
     }
 
     /**
@@ -244,12 +250,12 @@ public class UserController {
      * PUT /v1/users/settings/account-privacy
      */
     @PutMapping("/settings/account-privacy")
-    public ResponseEntity<UserSettings> updateAccountPrivacy(
+    public ResponseEntity<UserSettingsResponseDto> updateAccountPrivacy(
             @RequestBody UpdateAccountPrivacyDto requestDto) {
         User authenticatedUser = authenticationService.getAuthenticatedUser();
         userSettingsService.updateAccountPrivacy(authenticatedUser, requestDto.isPrivate());
         UserSettings settings = userSettingsService.getOrCreateSettings(authenticatedUser);
-        return ResponseEntity.ok(settings);
+        return ResponseEntity.ok(UserSettingsResponseDto.from(settings));
     }
 
     /**
@@ -257,11 +263,11 @@ public class UserController {
      * PUT /v1/users/settings/auto-approve
      */
     @PutMapping("/settings/auto-approve")
-    public ResponseEntity<UserSettings> updateAutoApproveFollowers(
+    public ResponseEntity<UserSettingsResponseDto> updateAutoApproveFollowers(
             @RequestBody UpdateAutoApproveDto requestDto) {
         User authenticatedUser = authenticationService.getAuthenticatedUser();
         UserSettings settings = userSettingsService.updateAutoApproveFollowers(authenticatedUser, requestDto.isAutoApprove());
-        return ResponseEntity.ok(settings);
+        return ResponseEntity.ok(UserSettingsResponseDto.from(settings));
     }
 
     /**
@@ -269,11 +275,11 @@ public class UserController {
      * PUT /v1/users/settings/allow-following
      */
     @PutMapping("/settings/allow-following")
-    public ResponseEntity<UserSettings> updateAllowFollowing(
+    public ResponseEntity<UserSettingsResponseDto> updateAllowFollowing(
             @RequestBody UpdateAllowFollowingDto requestDto) {
         User authenticatedUser = authenticationService.getAuthenticatedUser();
         UserSettings settings = userSettingsService.updateAllowFollowing(authenticatedUser, requestDto.isAllowFollowing());
-        return ResponseEntity.ok(settings);
+        return ResponseEntity.ok(UserSettingsResponseDto.from(settings));
     }
 
     /**
@@ -281,9 +287,9 @@ public class UserController {
      * GET /v1/users/settings
      */
     @GetMapping("/settings")
-    public ResponseEntity<UserSettings> getUserSettings() {
+    public ResponseEntity<UserSettingsResponseDto> getUserSettings() {
         User authenticatedUser = authenticationService.getAuthenticatedUser();
         UserSettings settings = userSettingsService.getOrCreateSettings(authenticatedUser);
-        return ResponseEntity.ok(settings);
+        return ResponseEntity.ok(UserSettingsResponseDto.from(settings));
     }
 }

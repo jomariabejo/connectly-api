@@ -25,6 +25,12 @@ public class VerificationToken {
 
     private Date expiryDate;
 
+    @Column(length = 6)
+    private String otp;
+
+    @Column(name = "attempt_count", nullable = false)
+    private int attemptCount = 0;
+
     private Date calculateExpiryDate(int expiryTimeInMinutes) {
         Calendar cal = Calendar.getInstance();
         cal.setTime(new Timestamp(cal.getTime().getTime()));

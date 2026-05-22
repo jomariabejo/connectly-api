@@ -1,0 +1,2125 @@
+{
+  "info": {
+    "name": "Connectly API v1",
+    "description": "Connectly API v1 Postman collection.\n\nURL rule: every request uses `{{baseUrl}}/v1/...` where `baseUrl` must include the servlet context path `/api` (e.g. `http://localhost:8080/api` → `http://localhost:8080/api/v1/auth/login`).\n\nDocker Compose: set `baseUrl` to `baseUrlStage` (8081), `baseUrlDemo` (8082), or `baseUrlProd` (8083), or copy that variable's value into `baseUrl` before running requests.\n\nMailpit verification links look like: `http://localhost:8080/api/v1/auth/verify?token=...`",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api"
+    },
+    {
+      "key": "baseUrlStage",
+      "value": "http://localhost:8081/api"
+    },
+    {
+      "key": "baseUrlDemo",
+      "value": "http://localhost:8082/api"
+    },
+    {
+      "key": "baseUrlProd",
+      "value": "http://localhost:8083/api"
+    },
+    {
+      "key": "userEmail",
+      "value": "user@example.com"
+    },
+    {
+      "key": "userPassword",
+      "value": "Password123!"
+    },
+    {
+      "key": "username",
+      "value": "connectly_user"
+    },
+    {
+      "key": "adminEmail",
+      "value": "admin@example.com"
+    },
+    {
+      "key": "adminPassword",
+      "value": "Password123!"
+    },
+    {
+      "key": "userToken",
+      "value": ""
+    },
+    {
+      "key": "adminToken",
+      "value": ""
+    },
+    {
+      "key": "currentUserId",
+      "value": "1"
+    },
+    {
+      "key": "targetUserId",
+      "value": "2"
+    },
+    {
+      "key": "postId",
+      "value": "1"
+    },
+    {
+      "key": "commentId",
+      "value": "1"
+    },
+    {
+      "key": "circleId",
+      "value": "1"
+    },
+    {
+      "key": "memberId",
+      "value": "2"
+    },
+    {
+      "key": "followId",
+      "value": "1"
+    },
+    {
+      "key": "verificationToken",
+      "value": ""
+    },
+    {
+      "key": "reactivationToken",
+      "value": ""
+    },
+    {
+      "key": "resetToken",
+      "value": ""
+    },
+    {
+      "key": "resetOtp",
+      "value": ""
+    },
+    {
+      "key": "orderId",
+      "value": "1"
+    },
+    {
+      "key": "paymentId",
+      "value": "1"
+    },
+    {
+      "key": "marketplaceSource",
+      "value": "amazon"
+    },
+    {
+      "key": "orderStatus",
+      "value": "PENDING"
+    }
+  ],
+  "item": [
+    {
+      "name": "User Account Flow",
+      "description": "Start here for a normal user: register, verify, login, inspect the profile, manage settings, reset password, and handle account deletion or reactivation.",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\",\n  \"username\": \"{{username}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/auth/registration",
+            "description": "Creates a user account and sends one email verification link. The response stores the user id when present. Copy the verification token from Mailpit into the `verificationToken` collection variable before running verification requests."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "if (json.id) pm.collectionVariables.set('currentUserId', json.id);",
+                  "pm.test('Registration request completed', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify User Email",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/auth/verify?token={{verificationToken}}",
+            "description": "Verifies a newly registered user with the token copied from the Mailpit verification email. Email link format: `http://localhost:8080/api/v1/auth/verify?token=...` (use `{{baseUrl}}/v1/auth/verify?token=...` in requests)."
+          }
+        },
+        {
+          "name": "Confirm Registration",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/auth/registrationConfirm?token={{verificationToken}}",
+            "description": "Alternative registration confirmation endpoint backed by the verification token table. Use the token copied from the Mailpit verification email."
+          }
+        },
+        {
+          "name": "Login User",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/auth/login",
+            "description": "Authenticates a user and saves the JWT as `userToken`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "if (json.token) pm.collectionVariables.set('userToken', json.token);",
+                  "pm.test('User login returns a token', function () { pm.expect(json.token).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/users/me",
+            "description": "Returns the authenticated user and stores the id as `currentUserId`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "if (json.id) pm.collectionVariables.set('currentUserId', json.id);",
+                  "pm.test('Current user loaded', function () { pm.expect(pm.response.code).to.eql(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get User Settings",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/users/settings",
+            "description": "Returns settings for the authenticated user."
+          }
+        },
+        {
+          "name": "Update Account Privacy",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"private\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/users/settings/account-privacy",
+            "description": "Sets whether the authenticated account is private."
+          }
+        },
+        {
+          "name": "Update Auto Approve Followers",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"autoApprove\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/users/settings/auto-approve",
+            "description": "Controls whether follow requests are auto-approved for the authenticated user."
+          }
+        },
+        {
+          "name": "Update Allow Following",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"allowFollowing\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/users/settings/allow-following",
+            "description": "Controls whether other users can follow the authenticated user."
+          }
+        },
+        {
+          "name": "Forgot Password Email",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/auth/forgot-password/email",
+            "description": "Starts a password reset flow using an emailed reset link. Email link format: `.../api/v1/auth/reset-password?token=...`. Copy the token into `resetToken`, then run Reset Password (POST) with JSON body."
+          }
+        },
+        {
+          "name": "Forgot Password Otp",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/auth/forgot-password/otp",
+            "description": "Starts a password reset flow using an emailed one-time passcode."
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"otp\": \"{{resetOtp}}\",\n  \"newPassword\": \"{{userPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/auth/reset-password",
+            "description": "Completes a password reset using either a reset token (from the email link `.../api/v1/auth/reset-password?token=...`) or OTP. Provide `token` OR `otp` in the body, not both."
+          }
+        },
+        {
+          "name": "Delete Current User Account",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Testing account deletion flow\",\n  \"autoReactivationEnabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/users/me",
+            "description": "Soft-deletes the authenticated user and schedules permanent deletion."
+          }
+        },
+        {
+          "name": "Reactivate User Account",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reactivationToken\": \"{{reactivationToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/users/reactivate",
+            "description": "Reactivates a deleted account using the reactivation token."
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Content Flow",
+      "description": "Create and manage posts, comments, likes, and feeds as a normal authenticated user.",
+      "item": [
+        {
+          "name": "Create Post",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"A first Connectly post\",\n  \"content\": \"This post was created from the Postman collection.\",\n  \"postType\": \"text\",\n  \"privacy\": \"public\",\n  \"metadata\": \"{}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/posts",
+            "description": "Creates a post. The API currently returns the created post fields without an id, so run List Posts after this request to capture `postId`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Post created', function () { pm.expect(pm.response.code).to.eql(201); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Posts",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/posts?page=0&size=10",
+            "description": "Lists paginated posts. Saves the first returned post id to `postId`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "const posts = Array.isArray(json) ? json : json.content;",
+                  "if (posts && posts.length && posts[0].id) pm.collectionVariables.set('postId', posts[0].id);",
+                  "pm.test('Posts listed', function () { pm.expect(pm.response.code).to.eql(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Post",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/posts/{{postId}}",
+            "description": "Returns a single post by id."
+          }
+        },
+        {
+          "name": "Update Post",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Connectly post\",\n  \"content\": \"Updated from Postman.\",\n  \"postType\": \"text\",\n  \"privacy\": \"public\",\n  \"metadata\": \"{}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/posts/{{postId}}",
+            "description": "Updates a post owned by the authenticated user."
+          }
+        },
+        {
+          "name": "Get My Posts",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/posts/my-posts",
+            "description": "Lists posts created by the authenticated user."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = [];",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "if (Array.isArray(json) && json.length && json[0].id) pm.collectionVariables.set('postId', json[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get My Posts Paginated",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/posts/my-posts/paginated?page=0&size=10",
+            "description": "Lists authenticated user posts with pagination."
+          }
+        },
+        {
+          "name": "Get User Posts Paginated",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/posts/user/{{targetUserId}}/paginated?page=0&size=10",
+            "description": "Lists another user's posts with pagination and privacy checks."
+          }
+        },
+        {
+          "name": "Get Home Feed",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/posts/feed?page=0&size=10",
+            "description": "Returns the authenticated user's home feed."
+          }
+        },
+        {
+          "name": "Create Comment",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Nice post from Postman.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/posts/{{postId}}/comments",
+            "description": "Creates a comment on the selected post. Run List Post Comments after this request to capture `commentId`."
+          }
+        },
+        {
+          "name": "List Post Comments",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/posts/{{postId}}/comments?page=0&size=10",
+            "description": "Lists comments for a post and stores the first comment id as `commentId`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "const comments = Array.isArray(json) ? json : json.content;",
+                  "if (comments && comments.length && comments[0].id) pm.collectionVariables.set('commentId', comments[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Comment",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/posts/{{postId}}/comments/{{commentId}}",
+            "description": "Returns a single comment for a post."
+          }
+        },
+        {
+          "name": "Update Comment",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Updated comment from Postman.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/posts/{{postId}}/comments/{{commentId}}",
+            "description": "Updates a comment owned by the authenticated user."
+          }
+        },
+        {
+          "name": "Toggle Post Like",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/v1/posts/{{postId}}/likes/toggle",
+            "description": "Likes the post if not liked, or unlikes it if already liked."
+          }
+        },
+        {
+          "name": "Get Post Like Count",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/posts/{{postId}}/likes/count",
+            "description": "Returns the total like count for the selected post."
+          }
+        },
+        {
+          "name": "Get My Likes",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/posts/likes/my-likes",
+            "description": "Returns all likes created by the authenticated user."
+          }
+        },
+        {
+          "name": "Delete Comment",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/v1/posts/{{postId}}/comments/{{commentId}}",
+            "description": "Deletes a comment owned by the authenticated user."
+          }
+        },
+        {
+          "name": "Delete Post",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/v1/posts/{{postId}}",
+            "description": "Deletes a post owned by the authenticated user."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders Flow",
+      "description": "Create, list, inspect, update, and audit orders as an authenticated user.",
+      "item": [
+        {
+          "name": "Create Order",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": {{currentUserId}},\n  \"items\": [\n    {\n      \"productName\": \"Connectly Starter Pack\",\n      \"quantity\": 2,\n      \"price\": 24.99,\n      \"subtotal\": 49.98\n    }\n  ],\n  \"totalAmount\": 49.98,\n  \"marketplaceSource\": \"{{marketplaceSource}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/orders",
+            "description": "Creates an order for the authenticated user and saves the returned id as `orderId`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "if (json.id) pm.collectionVariables.set('orderId', json.id);",
+                  "if (json.status) pm.collectionVariables.set('orderStatus', json.status);",
+                  "pm.test('Order created', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Orders",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/orders?page=0&size=20&sort=createdDate&sortOrder=DESC&status={{orderStatus}}&marketplace={{marketplaceSource}}",
+            "description": "Lists orders with pagination, sorting, status, and marketplace filters. Saves the first returned order id when present."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "if (Array.isArray(json.data) && json.data.length && json.data[0].id) {",
+                  "  pm.collectionVariables.set('orderId', json.data[0].id);",
+                  "  if (json.data[0].status) pm.collectionVariables.set('orderStatus', json.data[0].status);",
+                  "}",
+                  "pm.test('Orders listed', function () { pm.expect(pm.response.code).to.eql(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Order",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/orders/{{orderId}}",
+            "description": "Returns a single order with its items and status history."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "if (json.id) pm.collectionVariables.set('orderId', json.id);",
+                  "if (json.status) pm.collectionVariables.set('orderStatus', json.status);",
+                  "pm.test('Order loaded', function () { pm.expect(pm.response.code).to.eql(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Order Status",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newStatus\": \"PROCESSING\",\n  \"reason\": \"Order is ready for fulfillment\",\n  \"idempotencyKey\": \"order-status-update-1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/orders/{{orderId}}/status",
+            "description": "Moves an order to the next allowed status and saves the returned status."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "if (json.id) pm.collectionVariables.set('orderId', json.id);",
+                  "if (json.status) pm.collectionVariables.set('orderStatus', json.status);",
+                  "pm.test('Order status updated', function () { pm.expect(pm.response.code).to.eql(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Order Status History",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/orders/{{orderId}}/status-history?page=0&size=50",
+            "description": "Returns the audit trail of status changes for an order."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments Flow",
+      "description": "Payment checkout and order payment queries. Run Orders Flow first to set `orderId`. Webhook requests are for provider simulation only.",
+      "item": [
+        {
+          "name": "Create Payment Checkout",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": {{orderId}},\n  \"provider\": \"PAYMONGO\",\n  \"currency\": \"PHP\",\n  \"successUrl\": \"http://localhost:3000/payment/success\",\n  \"cancelUrl\": \"http://localhost:3000/payment/cancel\",\n  \"idempotencyKey\": \"checkout-order-{{orderId}}-paymongo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/payments/checkout",
+            "description": "Creates a payment checkout session for an order. Saves returned payment id as `paymentId` when present."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "if (json.id) pm.collectionVariables.set('paymentId', json.id);",
+                  "pm.test('Checkout created', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Payment",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/payments/{{paymentId}}",
+            "description": "Returns a single payment by id for the authenticated user."
+          }
+        },
+        {
+          "name": "Get Order Payments",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/orders/{{orderId}}/payments",
+            "description": "Lists all payments associated with an order."
+          }
+        },
+        {
+          "name": "PayMongo Webhook (simulate)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Paymongo-Signature",
+                "value": "SIGNATURE_HERE",
+                "description": "Required for real webhooks; replace with valid signature in non-local testing."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"id\": \"evt_test_123\",\n    \"attributes\": {\n      \"type\": \"payment.paid\",\n      \"data\": {\n        \"id\": \"pay_test_123\",\n        \"attributes\": {\n          \"checkout_session_id\": \"cs_test_123\"\n        }\n      }\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/payments/webhooks/paymongo",
+            "description": "Simulates a PayMongo webhook callback. Production calls require a valid `Paymongo-Signature` header."
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Social Flow",
+      "description": "Follow users, manage follow requests, circles, and blocking as an authenticated user.",
+      "item": [
+        {
+          "name": "Follow User",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/v1/users/{{targetUserId}}/follow",
+            "description": "Follows another user or creates a pending follow request based on that user's settings."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "if (json.id) pm.collectionVariables.set('followId', json.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unfollow User",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/v1/users/{{targetUserId}}/follow",
+            "description": "Unfollows a user."
+          }
+        },
+        {
+          "name": "Get User Followers",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/users/{{targetUserId}}/followers?page=0&size=10",
+            "description": "Lists followers for a user."
+          }
+        },
+        {
+          "name": "Get User Following",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/users/{{targetUserId}}/following?page=0&size=10",
+            "description": "Lists users followed by a user."
+          }
+        },
+        {
+          "name": "Get Pending Follow Requests",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/follow-requests?page=0&size=10",
+            "description": "Lists pending follow requests for the authenticated user and stores the first request id as `followId`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "const requests = Array.isArray(json) ? json : json.content;",
+                  "if (requests && requests.length && requests[0].id) pm.collectionVariables.set('followId', requests[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Approve Follow Request",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/v1/follow-requests/{{followId}}/approve",
+            "description": "Approves a pending follow request for the authenticated user."
+          }
+        },
+        {
+          "name": "Reject Follow Request",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/v1/follow-requests/{{followId}}/reject",
+            "description": "Rejects a pending follow request for the authenticated user."
+          }
+        },
+        {
+          "name": "Get Follower Count",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/users/{{targetUserId}}/follower-count",
+            "description": "Returns the number of followers for a user."
+          }
+        },
+        {
+          "name": "Get Following Count",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/users/{{targetUserId}}/following-count",
+            "description": "Returns the number of users followed by a user."
+          }
+        },
+        {
+          "name": "Check Is Following",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/users/{{targetUserId}}/is-following",
+            "description": "Checks whether the authenticated user follows the target user."
+          }
+        },
+        {
+          "name": "Create Circle",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Close Friends\",\n  \"description\": \"People who should see circle-only posts.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/circles",
+            "description": "Creates a circle owned by the authenticated user."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "if (json.id) pm.collectionVariables.set('circleId', json.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Circles",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/circles",
+            "description": "Lists circles owned by the authenticated user and stores the first circle id."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = [];",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "if (Array.isArray(json) && json.length && json[0].id) pm.collectionVariables.set('circleId', json[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Circle",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/circles/{{circleId}}",
+            "description": "Returns one circle by id."
+          }
+        },
+        {
+          "name": "Update Circle",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Close Friends\",\n  \"description\": \"Updated circle description.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/circles/{{circleId}}",
+            "description": "Updates the name and description for an owned circle."
+          }
+        },
+        {
+          "name": "Add Circle Member",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/v1/circles/{{circleId}}/members/{{memberId}}",
+            "description": "Adds a user to a circle."
+          }
+        },
+        {
+          "name": "Remove Circle Member",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/v1/circles/{{circleId}}/members/{{memberId}}",
+            "description": "Removes a user from a circle."
+          }
+        },
+        {
+          "name": "Get Circle Member Count",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/circles/{{circleId}}/member-count",
+            "description": "Returns the number of members in a circle."
+          }
+        },
+        {
+          "name": "Get Circles Member Of",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/circles/member-of",
+            "description": "Lists circles where the authenticated user is a member."
+          }
+        },
+        {
+          "name": "Delete Circle",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/v1/circles/{{circleId}}",
+            "description": "Deletes a circle owned by the authenticated user."
+          }
+        },
+        {
+          "name": "Block User",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/v1/blocks/{{targetUserId}}",
+            "description": "Blocks a target user."
+          }
+        },
+        {
+          "name": "Unblock User",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/v1/blocks/{{targetUserId}}",
+            "description": "Unblocks a target user."
+          }
+        },
+        {
+          "name": "Get Blocked Users",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/blocks/blocked-users",
+            "description": "Lists users blocked by the authenticated user."
+          }
+        },
+        {
+          "name": "Get Blockers",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/blocks/blockers",
+            "description": "Lists users who have blocked the authenticated user."
+          }
+        },
+        {
+          "name": "Check Is Blocked",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/blocks/{{targetUserId}}/is-blocked",
+            "description": "Checks whether the authenticated user has blocked the target user."
+          }
+        },
+        {
+          "name": "Check Is Bidirectionally Blocked",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/blocks/{{targetUserId}}/is-bidirectionally-blocked",
+            "description": "Checks whether either user has blocked the other."
+          }
+        },
+        {
+          "name": "Get Blocked Count",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/blocks/count/blocked",
+            "description": "Returns how many users the authenticated user has blocked."
+          }
+        },
+        {
+          "name": "Get Blocker Count",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/blocks/count/blockers",
+            "description": "Returns how many users have blocked the authenticated user."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Flow",
+      "description": "Admin-focused requests. There is no admin creation API, so set `adminEmail` and `adminPassword` to an existing admin account.",
+      "item": [
+        {
+          "name": "Login Admin",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/auth/login",
+            "description": "Authenticates an existing admin and saves the JWT as `adminToken`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "if (json.token) pm.collectionVariables.set('adminToken', json.token);",
+                  "pm.test('Admin login returns a token', function () { pm.expect(json.token).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin Dashboard",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/admin/dashboard",
+            "description": "Checks access to the admin dashboard test route."
+          }
+        },
+        {
+          "name": "List Users",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/users/",
+            "description": "Lists all users and stores a target user id for admin operations."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let users = [];",
+                  "try { users = pm.response.json(); } catch (e) {}",
+                  "const currentUserId = String(pm.collectionVariables.get('currentUserId') || '');",
+                  "if (Array.isArray(users) && users.length) {",
+                  "  const target = users.find(function (user) { return String(user.id) !== currentUserId; }) || users[0];",
+                  "  if (target && target.id) pm.collectionVariables.set('targetUserId', target.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Users Paginated",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/users/paginated?page=0&size=10&sort=id,asc",
+            "description": "Lists users with pagination and optional filters."
+          }
+        },
+        {
+          "name": "List Users Scheduled For Deletion",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/users/admin/users/scheduled-deletion",
+            "description": "Lists users scheduled for permanent deletion."
+          }
+        },
+        {
+          "name": "Admin Delete User",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"forceDelete\": false,\n  \"reason\": \"Admin test deletion\",\n  \"extensionDays\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/users/admin/users/{{targetUserId}}",
+            "description": "Soft-deletes or permanently deletes a user depending on `forceDelete`."
+          }
+        },
+        {
+          "name": "Admin Extend Deletion Period",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"forceDelete\": false,\n  \"reason\": \"Extend deletion period for testing\",\n  \"extensionDays\": 7\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/users/admin/users/{{targetUserId}}/extend-deletion",
+            "description": "Extends the deletion grace period for a user scheduled for deletion."
+          }
+        }
+      ]
+    },
+    {
+      "name": "System Routes",
+      "description": "Public smoke tests and secured dashboard routes for checking security behavior.",
+      "item": [
+        {
+          "name": "Public Hello",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/public/hello",
+            "description": "Unauthenticated health-style route. Expected: `Hello, Connectly API is running!`"
+          }
+        },
+        {
+          "name": "Hello World",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/test/helloworld",
+            "description": "Public test route."
+          }
+        },
+        {
+          "name": "User Dashboard",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/user/dashboard",
+            "description": "Checks access to the user dashboard test route."
+          }
+        }
+      ]
+    }
+  ]
+}

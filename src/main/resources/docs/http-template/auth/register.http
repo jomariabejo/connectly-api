@@ -1,9 +1,11 @@
 ### Register User
-POST http://localhost:8080/v1/auth/registration
+POST http://localhost:8080/api/v1/auth/registration
 Content-Type: application/json
 
 {
   "email": "test@gmail.com",
   "password": "admin123",
-  "username": "helloworld"
+  "username": "helloworld",
+  "firstName": "Jane",
+  "lastName": "Doe"
 }

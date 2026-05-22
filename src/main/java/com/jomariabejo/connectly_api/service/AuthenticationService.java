@@ -1,28 +1,29 @@
 package com.jomariabejo.connectly_api.service;
 
+import com.jomariabejo.connectly_api.common.FrontendUrlBuilder;
+import com.jomariabejo.connectly_api.exception.InvalidVerificationException;
+import com.jomariabejo.connectly_api.model.VerificationToken;
 import com.jomariabejo.connectly_api.dto.RegisterUserDto;
 import com.jomariabejo.connectly_api.dto.LoginUserDto;
+import com.jomariabejo.connectly_api.exception.EmailAlreadyInUseException;
 import com.jomariabejo.connectly_api.exception.UnauthorizedAccessException;
 import com.jomariabejo.connectly_api.exception.InvalidPasswordResetTokenException;
 import com.jomariabejo.connectly_api.exception.PasswordResetTokenExpiredException;
+import com.jomariabejo.connectly_api.exception.UserAlreadyExistsException;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.model.PasswordResetToken;
 import com.jomariabejo.connectly_api.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.token.TokenService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.Optional;
 import java.util.UUID;
@@ -42,12 +43,10 @@ public class AuthenticationService {
     private final PasswordResetTokenService passwordResetTokenService;
     private final RateLimitingService rateLimitingService;
     private final AuditService auditService;
+    private final FrontendUrlBuilder frontendUrlBuilder;
 
     @Value("${security.password.validation.min-length:8}")
     private int passwordMinLength;
-
-    @Value("${app.password-reset.redirect-url:http://localhost:8080/reset-password}")
-    private String passwordResetRedirectUrl;
 
     public AuthenticationService(
             UserRepository userRepository,
@@ -57,7 +56,8 @@ public class AuthenticationService {
             VerificationTokenService verificationTokenService,
             PasswordResetTokenService passwordResetTokenService,
             RateLimitingService rateLimitingService,
-            AuditService auditService) {
+            AuditService auditService,
+            FrontendUrlBuilder frontendUrlBuilder) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -66,17 +66,24 @@ public class AuthenticationService {
         this.passwordResetTokenService = passwordResetTokenService;
         this.rateLimitingService = rateLimitingService;
         this.auditService = auditService;
+        this.frontendUrlBuilder = frontendUrlBuilder;
     }
 
     public User signup(RegisterUserDto registerUserDto) {
         // Check if user already exists
-        if (userRepository.existsByEmail(registerUserDto.getEmail())) {
-            throw new RuntimeException("Email already in use");
+        if (userRepository.existsAnyByUsername(registerUserDto.getUsername())) {
+            throw new UserAlreadyExistsException("Username is already taken");
+        }
+
+        if (userRepository.existsAnyByEmail(registerUserDto.getEmail())) {
+            throw new EmailAlreadyInUseException("Email is already registered");
         }
 
         User user = new User();
         user.setUsername(registerUserDto.getUsername());
-        user.setEmail(registerUserDto.getEmail());
+        user.setEmail(registerUserDto.getEmail().trim().toLowerCase());
+        user.setFirstName(registerUserDto.getFirstName());
+        user.setLastName(registerUserDto.getLastName());
         user.setPassword(passwordEncoder.encode(registerUserDto.getPassword()));
         user.setEnabled(false);
 
@@ -90,21 +97,58 @@ public class AuthenticationService {
         user = userRepository.save(user);
 
 
-        verificationTokenService.createVerificationToken(user,token);
-        // Send verification email
-        String verificationLink = "http://localhost:8080/v1/auth/verify?token=" + token;
-        emailService.sendVerificationEmail(user.getEmail(), verificationLink);
-
-
-
+        sendVerificationEmailForUser(user, token);
         return user;
     }
 
+    public void sendVerificationEmailForUser(User user, String token) {
+        VerificationToken verificationToken = verificationTokenService.createVerificationToken(user, token);
+        String verificationLink = frontendUrlBuilder.verifyEmailUrl(token);
+        emailService.sendVerificationEmail(
+                user.getEmail(),
+                verificationLink,
+                verificationToken.getOtp(),
+                frontendUrlBuilder.checkEmailUrl()
+        );
+    }
+
+    @Transactional
+    public void verifyByOtp(String email, String otp) {
+        String normalizedEmail = email.trim().toLowerCase();
+        if (rateLimitingService.isRateLimited(normalizedEmail, "verify_otp")) {
+            throw new InvalidVerificationException("Too many verification attempts. Please try again later.");
+        }
+        rateLimitingService.recordAttempt(normalizedEmail, "verify_otp");
+        verificationTokenService.verifyByOtp(normalizedEmail, otp);
+    }
+
+    public void resendVerificationEmail(String email) {
+        String normalizedEmail = email.trim().toLowerCase();
+        if (rateLimitingService.isRateLimited(normalizedEmail, "verify_resend")) {
+            throw new InvalidVerificationException("Too many resend requests. Please try again later.");
+        }
+        rateLimitingService.recordAttempt(normalizedEmail, "verify_resend");
+
+        Optional<User> userOpt = userRepository.findByEmailNormalized(normalizedEmail);
+        if (userOpt.isEmpty() || userOpt.get().isEnabled()) {
+            return;
+        }
+
+        User user = userOpt.get();
+        String token = UUID.randomUUID().toString();
+        user.setVerificationToken(token);
+        user.setExpiryDate(new Date(System.currentTimeMillis() + 24 * 60 * 60 * 1000L));
+        userRepository.save(user);
+        sendVerificationEmailForUser(user, token);
+        logger.info("Verification email resent to: {}", normalizedEmail);
+    }
+
     public User authenticate(LoginUserDto input) {
+        String email = input.getEmail() == null ? "" : input.getEmail().trim().toLowerCase();
 
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
-                        input.getEmail(),
+                        email,
                         input.getPassword()
                 )
         );
@@ -125,13 +169,23 @@ public class AuthenticationService {
     }
 
     public User verifyUserByToken(String token) {
+        Optional<VerificationToken> tokenOpt = verificationTokenService.getVerificationToken(token);
+        if (tokenOpt.isPresent()) {
+            verificationTokenService.validateToken(token);
+            return tokenOpt.get().getUser();
+        }
+
         Optional<User> userOpt = userRepository.findByVerificationToken(token);
-        if (userOpt.isEmpty()) return null;
+        if (userOpt.isEmpty()) {
+            return null;
+        }
 
         User user = userOpt.get();
         user.setEnabled(true);
         user.setVerificationToken(null);
-        return userRepository.save(user);
+        userRepository.save(user);
+        verificationTokenService.revokeForUser(user);
+        return user;
     }
 
     /**
@@ -160,7 +214,7 @@ public class AuthenticationService {
             String resetToken = passwordResetTokenService.createEmailResetToken(user);
 
             // Send email with reset link
-            String resetLink = passwordResetRedirectUrl + "?token=" + resetToken;
+            String resetLink = frontendUrlBuilder.resetPasswordUrl(resetToken);
             emailService.sendPasswordResetEmailWithLink(email, resetLink);
 
             logger.info("Password reset email sent to: {}", email);

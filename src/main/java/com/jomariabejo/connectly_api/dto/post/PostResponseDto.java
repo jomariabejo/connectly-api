@@ -1,8 +1,8 @@
 package com.jomariabejo.connectly_api.dto.post;
 
 
+import com.jomariabejo.connectly_api.dto.user.UserResponseDto;
 import com.jomariabejo.connectly_api.model.Post;
-import com.jomariabejo.connectly_api.model.User;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -26,7 +26,10 @@ public class PostResponseDto {
 
     private LocalDateTime createdAt;
 
-    private User createdBy;
+    private UserResponseDto createdBy;
+
+    public PostResponseDto() {
+    }
 
     public PostResponseDto(Post post) {
         this.id = post.getId();
@@ -36,7 +39,7 @@ public class PostResponseDto {
         this.metadata = post.getMetadata();
         this.privacy = post.getPrivacy() != null ? post.getPrivacy().getValue() : "public";
         this.createdAt = post.getCreatedAt();
-        this.createdBy = post.getCreatedBy();
+        this.createdBy = UserResponseDto.from(post.getCreatedBy());
     }
 
     @Override
@@ -53,4 +56,3 @@ public class PostResponseDto {
                 '}';
     }
 }
-

@@ -1,0 +1,19 @@
+### PayMongo Webhook
+POST http://localhost:8080/api/v1/payments/webhooks/paymongo
+Paymongo-Signature: SIGNATURE_HERE
+Content-Type: application/json
+
+{
+  "data": {
+    "id": "evt_test_123",
+    "attributes": {
+      "type": "payment.paid",
+      "data": {
+        "id": "pay_test_123",
+        "attributes": {
+          "checkout_session_id": "cs_test_123"
+        }
+      }
+    }
+  }
+}

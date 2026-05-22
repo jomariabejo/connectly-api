@@ -1,0 +1,194 @@
+services:
+  # =====================
+  # STAGE ENVIRONMENT
+  # =====================
+  postgres-stage:
+    image: postgres:16-alpine
+    container_name: connectly-postgres-stage
+    environment:
+      POSTGRES_DB: connectly_db_stage
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+    ports:
+      - "5433:5432"
+    volumes:
+      - connectly_pg_stage_data:/var/lib/postgresql/data
+      # Runs once on first volume creation (empty DB)
+      - ./src/main/resources/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    networks:
+      - connectly-stage-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api-stage:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: connectly-api-stage
+    environment:
+      SPRING_PROFILES_ACTIVE: stage
+      APP_API_PUBLIC_BASE_URL: http://localhost:8081/api
+      DB_PASSWORD: admin
+      MANAGEMENT_DATADOG_METRICS_EXPORT_ENABLED: "false"
+      MANAGEMENT_METRICS_EXPORT_DATADOG_ENABLED: "false"
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      JWT_SECRET: 3cfa76ef14937c1c0ea519f8fc057a80fcd04a7420f8e8bcd0a7567c272e007b
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+    ports:
+      - "8081:8080"
+    depends_on:
+      postgres-stage:
+        condition: service_healthy
+    networks:
+      - connectly-stage-network
+      - connectly-mail-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/api/actuator/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # =====================
+  # DEMO ENVIRONMENT
+  # =====================
+  postgres-demo:
+    image: postgres:16-alpine
+    container_name: connectly-postgres-demo
+    environment:
+      POSTGRES_DB: connectly_db_demo
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+    ports:
+      - "5434:5432"
+    volumes:
+      - connectly_pg_demo_data:/var/lib/postgresql/data
+      - ./src/main/resources/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    networks:
+      - connectly-demo-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api-demo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: connectly-api-demo
+    environment:
+      SPRING_PROFILES_ACTIVE: demo
+      APP_API_PUBLIC_BASE_URL: http://localhost:8082/api
+      DB_PASSWORD: admin
+      JWT_SECRET: 3cfa76ef14937c1c0ea519f8fc057a80fcd04a7420f8e8bcd0a7567c272e007b
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      MANAGEMENT_DATADOG_METRICS_EXPORT_ENABLED: "false"
+      MANAGEMENT_METRICS_EXPORT_DATADOG_ENABLED: "false"
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    ports:
+      - "8082:8080"
+    depends_on:
+      postgres-demo:
+        condition: service_healthy
+    networks:
+      - connectly-demo-network
+      - connectly-mail-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/api/actuator/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # =====================
+  # PROD ENVIRONMENT
+  # =====================
+  postgres-prod:
+    image: postgres:16-alpine
+    container_name: connectly-postgres-prod
+    environment:
+      POSTGRES_DB: connectly_db_prod
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+    ports:
+      - "5435:5432"
+    volumes:
+      - connectly_pg_prod_data:/var/lib/postgresql/data
+      - ./src/main/resources/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    networks:
+      - connectly-prod-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: connectly-api-prod
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      APP_API_PUBLIC_BASE_URL: http://localhost:8083/api
+      DB_PASSWORD: admin
+      JWT_SECRET: 3cfa76ef14937c1c0ea519f8fc057a80fcd04a7420f8e8bcd0a7567c272e007b
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      MAIL_USERNAME: ""
+      MAIL_PASSWORD: ""
+      MANAGEMENT_DATADOG_METRICS_EXPORT_ENABLED: "false"
+      MANAGEMENT_METRICS_EXPORT_DATADOG_ENABLED: "false"
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    ports:
+      - "8083:8080"
+    depends_on:
+      postgres-prod:
+        condition: service_healthy
+    networks:
+      - connectly-prod-network
+      - connectly-mail-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/api/actuator/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ========================
+  # SHARED MAIL SERVICE
+  # ========================
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: connectly-mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - connectly-mail-network
+    environment:
+      MP_TLS_AUTO_CERT: 0
+
+volumes:
+  connectly_pg_stage_data:
+    driver: local
+  connectly_pg_demo_data:
+    driver: local
+  connectly_pg_prod_data:
+    driver: local
+
+networks:
+  connectly-stage-network:
+    driver: bridge
+  connectly-demo-network:
+    driver: bridge
+  connectly-prod-network:
+    driver: bridge
+  connectly-mail-network:
+    driver: bridge

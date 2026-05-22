@@ -6,6 +6,7 @@ import com.jomariabejo.connectly_api.model.Role;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -16,11 +17,12 @@ import org.springframework.stereotype.Service;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@Service
+@Service("userDetailsService")
 public class CustomUserDetailsService implements UserDetailsService {
 
     private final UserRepository userRepository;
     
+    @Lazy
     @Autowired(required = false)
     private UserService userService;
 
@@ -30,8 +32,10 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByEmail(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found @LoadUserByUsername : " + username));
+        String normalized = normalizeLoginIdentifier(username);
+        User user = userRepository.findByEmailNormalized(normalized)
+                .or(() -> userRepository.findByUsername(normalized))
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + normalized));
         
         // Check if user is deleted
         if (user.getDeletedAt() != null) {
@@ -53,6 +57,13 @@ public class CustomUserDetailsService implements UserDetailsService {
         }
         
         return user;
+    }
+
+    public static String normalizeLoginIdentifier(String identifier) {
+        if (identifier == null) {
+            return "";
+        }
+        return identifier.trim().toLowerCase();
     }
 
     private Set<GrantedAuthority> getAuthorities(Set<Role> roles) {

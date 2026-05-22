@@ -4,6 +4,7 @@ import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.model.VerificationToken;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Date;
@@ -18,6 +19,9 @@ public interface VerificationTokenRepository extends JpaRepository<VerificationT
     VerificationToken findByUser(User user);
 
     void deleteByUser(User user);
+
+    @Query("SELECT vt FROM VerificationToken vt WHERE LOWER(vt.user.email) = LOWER(:email) AND vt.otp = :otp")
+    Optional<VerificationToken> findByUserEmailAndOtp(@Param("email") String email, @Param("otp") String otp);
 
     @Query("SELECT vt FROM VerificationToken vt WHERE vt.expiryDate < ?1")
     List<VerificationToken> findAllExpiredTokens(Date now);

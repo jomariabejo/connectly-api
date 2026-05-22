@@ -10,8 +10,10 @@ import org.mapstruct.Mapping;
 public interface PostMapper {
 
     @Mapping(target = "createdAt", expression = "java(java.time.LocalDateTime.now())")
+    @Mapping(target = "privacy", expression = "java(com.jomariabejo.connectly_api.model.PrivacyLevel.fromString(createPostDto.getPrivacy()))")
     Post postDtoToPost(CreatePostDto createPostDto);
 
+    @Mapping(target = "privacy", expression = "java(post.getPrivacy() != null ? post.getPrivacy().getValue() : \"public\")")
     PostResponseDto postToPostResponseDto(Post post);
 
     CreatePostDto postToCreatePostDto(Post post);

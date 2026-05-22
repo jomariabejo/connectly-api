@@ -55,7 +55,7 @@ public class User implements UserDetails {
     @Column(name = "enabled")
     private boolean enabled = false;
 
-    @Column(nullable = true, unique = true)
+    @Column(name = "verificationtoken", unique = true)
     private String verificationToken;
 
     @Column(name = "expiry_date")

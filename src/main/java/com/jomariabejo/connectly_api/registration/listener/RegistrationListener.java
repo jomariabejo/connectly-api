@@ -1,5 +1,6 @@
 package com.jomariabejo.connectly_api.registration.listener;
 
+import com.jomariabejo.connectly_api.common.ApiUrlBuilder;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.service.UserService;
 import com.jomariabejo.connectly_api.service.VerificationTokenService;
@@ -22,6 +23,7 @@ public class RegistrationListener implements ApplicationListener<OnRegistrationC
     private final VerificationTokenService tokenService;
     private final MessageSource messages;
     private final JavaMailSender mailSender;
+    private final ApiUrlBuilder apiUrlBuilder;
 
     private final Logger logger = LoggerFactory.getLogger(RegistrationListener.class);
 
@@ -29,11 +31,13 @@ public class RegistrationListener implements ApplicationListener<OnRegistrationC
     public RegistrationListener(UserService userService,
                                 VerificationTokenService tokenService,
                                 MessageSource messages,
-                                JavaMailSender mailSender) {
+                                JavaMailSender mailSender,
+                                ApiUrlBuilder apiUrlBuilder) {
         this.userService = userService;
         this.tokenService = tokenService;
         this.messages = messages;
         this.mailSender = mailSender;
+        this.apiUrlBuilder = apiUrlBuilder;
     }
 
     @Override
@@ -50,7 +54,7 @@ public class RegistrationListener implements ApplicationListener<OnRegistrationC
 
         String recipientAddress = user.getEmail();
         String subject = "Registration Confirmation";
-        String confirmationUrl = event.getAppUrl() + "/v1/auth/verify?token=" + token;
+        String confirmationUrl = apiUrlBuilder.authVerifyUrl(token);
 
         try {
             String message = messages.getMessage("message.regSucc", null, event.getLocale());

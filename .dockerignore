@@ -1,0 +1,78 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*.iml
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+*.sublime-project
+.DS_Store
+
+# Build and cache
+build/
+dist/
+bin/
+.gradle/
+gradle-app.setting
+.gradletasknamecache
+*.class
+*.jar
+*.war
+*.ear
+
+# Test
+test/
+tests/
+**/test/**
+**/tests/**
+
+# npm
+node_modules/
+npm-debug.log
+package-lock.json
+yarn.lock
+
+# Docker
+.docker
+.dockerignore
+Dockerfile*
+docker-compose*.yml
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+
+# Documentation
+docs/
+README.md
+CHANGELOG.md
+LICENSE
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.log
+*.tmp
+.cache/
+.vagrant/
+.terraform/
+.venv/

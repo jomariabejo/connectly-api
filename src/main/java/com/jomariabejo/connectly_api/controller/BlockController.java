@@ -1,6 +1,7 @@
 package com.jomariabejo.connectly_api.controller;
 
-import com.jomariabejo.connectly_api.model.Block;
+import com.jomariabejo.connectly_api.dto.user.UserResponseDto;
+import com.jomariabejo.connectly_api.mapper.UserMapper;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.repository.UserRepository;
 import com.jomariabejo.connectly_api.service.AuthenticationService;
@@ -20,11 +21,18 @@ public class BlockController {
     private final BlockService blockService;
     private final UserRepository userRepository;
     private final AuthenticationService authenticationService;
+    private final UserMapper userMapper;
 
-    public BlockController(BlockService blockService, UserRepository userRepository, AuthenticationService authenticationService) {
+    public BlockController(
+            BlockService blockService,
+            UserRepository userRepository,
+            AuthenticationService authenticationService,
+            UserMapper userMapper
+    ) {
         this.blockService = blockService;
         this.userRepository = userRepository;
         this.authenticationService = authenticationService;
+        this.userMapper = userMapper;
     }
 
     /**
@@ -68,10 +76,10 @@ public class BlockController {
      * GET /v1/blocks/blocked-users
      */
     @GetMapping("/blocked-users")
-    public ResponseEntity<List<User>> getBlockedUsers() {
+    public ResponseEntity<List<UserResponseDto>> getBlockedUsers() {
         User authenticatedUser = authenticationService.getAuthenticatedUser();
         List<User> blockedUsers = blockService.getBlockedUsers(authenticatedUser);
-        return ResponseEntity.ok(blockedUsers);
+        return ResponseEntity.ok(userMapper.toResponseDtos(blockedUsers));
     }
 
     /**
@@ -79,10 +87,10 @@ public class BlockController {
      * GET /v1/blocks/blockers
      */
     @GetMapping("/blockers")
-    public ResponseEntity<List<User>> getBlockers() {
+    public ResponseEntity<List<UserResponseDto>> getBlockers() {
         User authenticatedUser = authenticationService.getAuthenticatedUser();
         List<User> blockers = blockService.getBlockers(authenticatedUser);
-        return ResponseEntity.ok(blockers);
+        return ResponseEntity.ok(userMapper.toResponseDtos(blockers));
     }
 
     /**

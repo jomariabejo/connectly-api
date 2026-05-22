@@ -31,8 +31,13 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-aop'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-cache'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'io.micrometer:micrometer-registry-prometheus'
+	implementation 'io.micrometer:micrometer-registry-datadog:1.12.2'
+	implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
 	implementation 'com.vladmihalcea:hibernate-types-60:2.21.1'
 	implementation 'io.jsonwebtoken:jjwt-api:0.11.0'  // API module
 	implementation 'io.jsonwebtoken:jjwt-impl:0.11.0' // Impl module
@@ -42,7 +47,7 @@ dependencies {
 	implementation("org.mapstruct:mapstruct:1.6.3")
 	implementation("org.mapstruct:mapstruct-processor:1.6.3")
 
-	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	// developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	runtimeOnly 'org.postgresql:postgresql'
 	runtimeOnly 'org.projectlombok:lombok:1.18.36'
 
