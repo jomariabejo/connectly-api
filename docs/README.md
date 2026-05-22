@@ -24,7 +24,10 @@ Central index for setup, operations, and deployment guides.
 | Asset | Location |
 |-------|----------|
 | Postman collection | [`src/main/resources/docs/postman/connectly-api-v1.postman_collection.json`](../src/main/resources/docs/postman/connectly-api-v1.postman_collection.json) |
+| Postman setup guide | [`src/main/resources/docs/postman/postman-setup.md`](../src/main/resources/docs/postman/postman-setup.md) |
 | HTTP templates (REST Client) | [`src/main/resources/docs/http-template/`](../src/main/resources/docs/http-template/) |
+| Auth curl guide | [`src/main/resources/docs/curls/auth-crud.md`](../src/main/resources/docs/curls/auth-crud.md) |
+| Codespaces setup guide | [`docs/getting-started/codespaces.md`](getting-started/codespaces.md) |
 
 ## Reference
 

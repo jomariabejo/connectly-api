@@ -13,7 +13,7 @@ curl -i -X POST http://localhost:8082/api/v1/auth/registration \
 
 // Verify Email Token
 // Copy the token from Mailpit and paste it into the query string.
-curl -i -X GET "http://localhost:8082/api/v1/auth/verify?token=PASTE_VERIFICATION_TOKEN_HERE"
+curl -i -X GET "http://localhost:8082/api/v1/auth/verify?token=f26c0bf7-640b-4fdd-9b38-868e941ae466"
 
 
 // Confirm Registration
@@ -59,4 +59,10 @@ curl -s http://localhost:8025/api/v1/messages | jq '.messages[] | {subject, To: 
 
 // Mailpit message detail via CLI
 // Use the message ID from the list command, then read the Text field to copy the actual token.
-curl -s http://localhost:8025/api/v1/message/PASTE_MESSAGE_ID_HERE | jq '.Subject, .Text'
+curl -s http://localhost:8025/api/v1/message/2wYk8f6EnT7Kj8LdofyMsx | jq '.Subject, .Text'
+
+
+
+http://localhost:8082/verify-email?token=f26c0bf7-640b-4fdd-9b38-868e941ae466\
+
+curl -s http://localhost:8025/api/v1/message/ | jq '.Subject, .Text'
