@@ -23,8 +23,10 @@ WORKDIR /app
 # Install curl for health checks
 RUN apk add --no-cache curl
 
-# Copy JAR from builder stage
-COPY --from=builder /build/build/libs/*.jar app.jar
+# Copy JAR from builder stage - Spring Boot creates both a regular and plain jar,
+# we want the regular one without the -plain suffix
+COPY --from=builder /build/build/libs/connectly-api-*.jar /app/
+RUN mv /app/connectly-api-*.jar /app/app.jar 2>/dev/null || mv /app/connectly-api-*-SNAPSHOT.jar /app/app.jar
 
 COPY render-entrypoint.sh /app/render-entrypoint.sh
 RUN chmod +x /app/render-entrypoint.sh
