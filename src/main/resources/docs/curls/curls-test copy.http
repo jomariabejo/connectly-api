@@ -1,0 +1,62 @@
+// Login User
+curl -i -X POST http://localhost:8082/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"Password123!"}'
+
+
+// Register User
+// Use a unique email and username if the sample values already exist.
+curl -i -X POST http://localhost:8082/api/v1/auth/registration \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"Password123!","username":"connectly_user","firstName":"Jane","lastName":"Doe"}'
+
+
+// Verify Email Token
+// Copy the token from Mailpit and paste it into the query string.
+curl -i -X GET "http://localhost:8082/api/v1/auth/verify?token=PASTE_VERIFICATION_TOKEN_HERE"
+
+
+// Confirm Registration
+// Alternative verification endpoint backed by the verification token table.
+curl -i -X GET "http://localhost:8082/api/v1/auth/registrationConfirm?token=PASTE_VERIFICATION_TOKEN_HERE"
+
+
+// Resend Verification Email
+curl -i -X POST http://localhost:8082/api/v1/auth/verify/resend \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com"}'
+
+
+// Forgot Password - Email Link
+curl -i -X POST http://localhost:8082/api/v1/auth/forgot-password/email \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com"}'
+
+
+// Forgot Password - OTP
+curl -i -X POST http://localhost:8082/api/v1/auth/forgot-password/otp \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com"}'
+
+
+// Reset Password - using email token
+curl -i -X POST http://localhost:8082/api/v1/auth/reset-password \
+  -H "Content-Type: application/json" \
+  -d '{"token":"PASTE_RESET_TOKEN_HERE","otp":null,"newPassword":"NewSecurePassword123!"}'
+
+
+// Reset Password - using OTP
+curl -i -X POST http://localhost:8082/api/v1/auth/reset-password \
+  -H "Content-Type: application/json" \
+  -d '{"token":null,"otp":"123456","newPassword":"NewSecurePassword123!"}'
+
+
+// Mailpit inbox via CLI
+// If the email exists, the message is available here.
+// The SMTP port is 1025, while the Mailpit UI/API is on 8025.
+curl -s http://localhost:8025/api/v1/messages | jq '.messages[] | {subject, To: .To, ID: .ID}'
+
+
+// Mailpit message detail via CLI
+// Use the message ID from the list command, then read the Text field to copy the actual token.
+curl -s http://localhost:8025/api/v1/message/PASTE_MESSAGE_ID_HERE | jq '.Subject, .Text'

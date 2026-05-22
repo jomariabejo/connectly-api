@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS app_user
     enabled     BOOLEAN   DEFAULT TRUE,
 
     -- Token for new user registration
-    verificationToken       VARCHAR(255) UNIQUE NOT NULL,
+    verificationToken       VARCHAR(255) UNIQUE,
 
     -- Timestamps for tracking when the account was created and last updated
     created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
