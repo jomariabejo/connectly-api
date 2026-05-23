@@ -25,10 +25,30 @@ public class Tenant {
     @Column(nullable = false, unique = true, length = 100)
     private String slug;
 
+    @Column(unique = true, length = 100)
+    private String subdomain;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
     private TenantStatus status = TenantStatus.ACTIVE;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "business_type", length = 50)
+    @Builder.Default
+    private BusinessType businessType = BusinessType.GENERAL;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "pricing_tier", length = 50)
+    @Builder.Default
+    private PricingTier pricingTier = PricingTier.STARTER;
+
+    @Column(name = "trial_ends_at")
+    private LocalDateTime trialEndsAt;
+
+    @Column(name = "subscription_active")
+    @Builder.Default
+    private Boolean subscriptionActive = true;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
@@ -52,5 +72,19 @@ public class Tenant {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+
+    /**
+     * Check if tenant is on trial period
+     */
+    public boolean isOnTrial() {
+        return trialEndsAt != null && LocalDateTime.now().isBefore(trialEndsAt);
+    }
+
+    /**
+     * Check if tenant subscription is active and valid
+     */
+    public boolean isSubscriptionValid() {
+        return subscriptionActive && (trialEndsAt == null || LocalDateTime.now().isBefore(trialEndsAt));
     }
 }
