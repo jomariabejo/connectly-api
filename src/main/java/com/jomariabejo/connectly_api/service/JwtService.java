@@ -23,6 +23,11 @@ public class JwtService {
     @Value("${security.jwt.expiration}")
     private long jwtExpiration;
 
+    // JWT claim names
+    private static final String TENANT_ID_CLAIM = "tenant_id";
+    private static final String TENANT_SLUG_CLAIM = "tenant_slug";
+    private static final String TENANT_ROLE_CLAIM = "tenant_role";
+
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
@@ -32,11 +37,75 @@ public class JwtService {
         return claimsResolver.apply(claims);
     }
 
+    /**
+     * Extract tenant ID from JWT token
+     * Returns null if tenant_id claim is not present
+     */
+    public Long extractTenantId(String token) {
+        try {
+            Object tenantId = extractAllClaims(token).get(TENANT_ID_CLAIM);
+            if (tenantId instanceof Number) {
+                return ((Number) tenantId).longValue();
+            }
+            return null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Extract tenant slug from JWT token
+     */
+    public String extractTenantSlug(String token) {
+        try {
+            return (String) extractAllClaims(token).get(TENANT_SLUG_CLAIM);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Extract tenant role from JWT token
+     */
+    public String extractTenantRole(String token) {
+        try {
+            return (String) extractAllClaims(token).get(TENANT_ROLE_CLAIM);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public String generateToken(UserDetails userDetails) {
         return generateToken(new HashMap<>(), userDetails);
     }
 
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
+        return buildToken(extraClaims, userDetails, jwtExpiration);
+    }
+
+    /**
+     * Generate token with tenant context
+     */
+    public String generateTokenWithTenant(UserDetails userDetails, Long tenantId, String tenantSlug, String tenantRole) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put(TENANT_ID_CLAIM, tenantId);
+        claims.put(TENANT_SLUG_CLAIM, tenantSlug);
+        if (tenantRole != null) {
+            claims.put(TENANT_ROLE_CLAIM, tenantRole);
+        }
+        return buildToken(claims, userDetails, jwtExpiration);
+    }
+
+    /**
+     * Generate token with additional custom claims and tenant context
+     */
+    public String generateTokenWithTenant(Map<String, Object> extraClaims, UserDetails userDetails, 
+                                        Long tenantId, String tenantSlug, String tenantRole) {
+        extraClaims.put(TENANT_ID_CLAIM, tenantId);
+        extraClaims.put(TENANT_SLUG_CLAIM, tenantSlug);
+        if (tenantRole != null) {
+            extraClaims.put(TENANT_ROLE_CLAIM, tenantRole);
+        }
         return buildToken(extraClaims, userDetails, jwtExpiration);
     }
 
