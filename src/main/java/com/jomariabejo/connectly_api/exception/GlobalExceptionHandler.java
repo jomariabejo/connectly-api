@@ -9,8 +9,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import jakarta.validation.ConstraintViolationException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -73,6 +76,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(CommentNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleCommentNotFoundException(CommentNotFoundException ex) {
         return buildErrorResponse(HttpStatus.NOT_FOUND, "Comment not found", ex);
+    }
+
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleUserNotFoundException(UserNotFoundException ex) {
+        return buildErrorResponse(HttpStatus.NOT_FOUND, "User not found", ex);
     }
 
     @ExceptionHandler(com.jomariabejo.connectly_api.orders_api.exception.OrderNotFoundException.class)
@@ -185,6 +193,31 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccountReactivationFailedException.class)
     public ResponseEntity<ErrorResponse> handleAccountReactivationFailedException(AccountReactivationFailedException ex) {
         return buildErrorResponse(HttpStatus.BAD_REQUEST, "Account reactivation failed", ex);
+    }
+
+    @ExceptionHandler(InvalidReactivationTokenException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidReactivationTokenException(InvalidReactivationTokenException ex) {
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "Invalid reactivation token", ex);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(MethodArgumentNotValidException ex) {
+        String message = ex.getBindingResult().getFieldErrors().stream()
+                .findFirst()
+                .map(error -> error.getDefaultMessage() == null ? "Validation failed" : error.getDefaultMessage())
+                .orElse("Validation failed");
+
+        return ResponseEntity.badRequest().body(new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Validation failed",
+                message,
+                System.currentTimeMillis()
+        ));
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ErrorResponse> handleConstraintViolationException(ConstraintViolationException ex) {
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "Validation failed", ex);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

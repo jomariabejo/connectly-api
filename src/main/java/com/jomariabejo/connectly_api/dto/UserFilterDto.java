@@ -1,5 +1,8 @@
 package com.jomariabejo.connectly_api.dto;
 
+import java.util.Objects;
+import java.util.stream.Stream;
+
 public class UserFilterDto {
     private String username;
     private String email;
@@ -45,5 +48,10 @@ public class UserFilterDto {
 
     public void setLastName(String lastName) {
         this.lastName = lastName;
+    }
+
+    public boolean hasAnyFilter() {
+        return Stream.of(username, email, firstName, lastName)
+                .anyMatch(Objects::nonNull);
     }
 }

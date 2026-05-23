@@ -145,7 +145,7 @@ public class User implements UserDetails {
     }
 
     public boolean isAutoReactivationEnabled() {
-        return autoReactivationEnabled;
+        return Boolean.TRUE.equals(autoReactivationEnabled);
     }
 
     public void setAutoReactivationEnabled(boolean autoReactivationEnabled) {

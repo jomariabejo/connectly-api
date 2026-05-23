@@ -70,6 +70,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u FROM User u WHERE u.scheduledDeletionAt IS NOT NULL AND u.scheduledDeletionAt <= CURRENT_TIMESTAMP")
     List<User> findUsersScheduledForDeletion();
 
+    @Query("SELECT u FROM User u WHERE u.deletedAt IS NOT NULL AND u.scheduledDeletionAt IS NOT NULL")
+    Page<User> findUsersScheduledForDeletion(Pageable pageable);
+
     @Query("SELECT u FROM User u WHERE u.deletedAt IS NOT NULL AND u.deletedAt > :deletedAfter")
     List<User> findRecentlyDeletedUsers(@Param("deletedAfter") LocalDateTime deletedAfter);
 

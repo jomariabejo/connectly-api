@@ -3,6 +3,7 @@ package com.jomariabejo.connectly_api.mapper;
 import com.jomariabejo.connectly_api.dto.PaginationDto;
 import com.jomariabejo.connectly_api.dto.user.UserResponseDto;
 import com.jomariabejo.connectly_api.model.User;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -28,5 +29,9 @@ public class UserMapper {
                 users.getTotalElements(),
                 users.getTotalPages()
         );
+    }
+
+    public Page<UserResponseDto> toResponseDto(Page<User> users) {
+        return users.map(this::toResponseDto);
     }
 }

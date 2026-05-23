@@ -1,7 +1,9 @@
 package com.jomariabejo.connectly_api.service;
 
+import com.jomariabejo.connectly_api.dto.UserSettingsUpdateDto;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.model.UserSettings;
+import com.jomariabejo.connectly_api.repository.UserRepository;
 import com.jomariabejo.connectly_api.repository.UserSettingsRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -13,9 +15,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserSettingsService {
 
     private final UserSettingsRepository userSettingsRepository;
+    private final UserRepository userRepository;
 
-    public UserSettingsService(UserSettingsRepository userSettingsRepository) {
+    public UserSettingsService(UserSettingsRepository userSettingsRepository, UserRepository userRepository) {
         this.userSettingsRepository = userSettingsRepository;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -86,5 +90,30 @@ public class UserSettingsService {
         
         log.info("Updated account privacy for user {} to private={}", user.getId(), isPrivate);
         return user;
+    }
+
+    public UserSettings updateSettings(User user, UserSettingsUpdateDto request) {
+        UserSettings settings = getOrCreateSettings(user);
+
+        if (request.getPrivateAccount() != null) {
+            user.setAccountPrivate(request.getPrivateAccount());
+            settings.setAutoApproveFollowers(!request.getPrivateAccount());
+        }
+
+        if (request.getAutoApproveFollowers() != null) {
+            settings.setAutoApproveFollowers(request.getAutoApproveFollowers());
+            user.setAccountPrivate(!request.getAutoApproveFollowers());
+        }
+
+        if (request.getAllowFollowing() != null) {
+            settings.setAllowFollowing(request.getAllowFollowing());
+        }
+
+        if (request.getAutoReactivationEnabled() != null) {
+            user.setAutoReactivationEnabled(request.getAutoReactivationEnabled());
+        }
+
+        userRepository.save(user);
+        return userSettingsRepository.save(settings);
     }
 }

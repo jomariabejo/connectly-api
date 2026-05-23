@@ -15,6 +15,7 @@ public class UserSettingsResponseDto {
     private Long userId;
     private Boolean autoApproveFollowers;
     private Boolean allowFollowing;
+    private Boolean autoReactivationEnabled;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -28,6 +29,7 @@ public class UserSettingsResponseDto {
         dto.setUserId(settings.getUser() != null ? settings.getUser().getId() : null);
         dto.setAutoApproveFollowers(settings.getAutoApproveFollowers());
         dto.setAllowFollowing(settings.getAllowFollowing());
+        dto.setAutoReactivationEnabled(settings.getUser() != null ? settings.getUser().isAutoReactivationEnabled() : null);
         dto.setCreatedAt(settings.getCreatedAt());
         dto.setUpdatedAt(settings.getUpdatedAt());
         return dto;
