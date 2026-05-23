@@ -54,7 +54,7 @@ public class TenantProvisioningService {
      */
     public Tenant provisionNewTenant(User creator, CreateTenantRequest request) {
         // Normalize and validate subdomain
-        String normalizedSubdomain = SubdomainExtractor.normalizeSubdomain(request.getSubdomain());
+        String normalizedSubdomain = SubdomainExtractor.normalizeSubdomain(request.getSubdomainOrSlug());
         if (!SubdomainExtractor.isValidSubdomain(normalizedSubdomain)) {
             throw new IllegalArgumentException("Invalid subdomain: " + normalizedSubdomain);
         }
@@ -81,7 +81,7 @@ public class TenantProvisioningService {
 
         // Create tenant
         Tenant tenant = Tenant.builder()
-                .name(request.getTenantName())
+                .name(request.getName())
                 .slug(normalizedSubdomain) // slug and subdomain can be the same
                 .subdomain(normalizedSubdomain)
                 .businessType(businessType)
@@ -203,15 +203,24 @@ public class TenantProvisioningService {
             suggestion = suggestion.substring(0, 50);
         }
 
-        // If already taken, add number suffix
+        // If already taken, add number suffix (with maximum retry limit)
         String original = suggestion;
         int counter = 1;
-        while (tenantRepository.existsBySubdomain(suggestion)) {
-            suggestion = original + counter;
-            if (suggestion.length() > 50) {
-                suggestion = original.substring(0, 45) + counter;
+        int maxRetries = 100;
+        
+        while (tenantRepository.existsBySubdomain(suggestion) && counter <= maxRetries) {
+            String suffix = String.valueOf(counter);
+            int maxLength = 50 - suffix.length();
+            if (original.length() > maxLength) {
+                suggestion = original.substring(0, maxLength) + suffix;
+            } else {
+                suggestion = original + suffix;
             }
             counter++;
+        }
+
+        if (counter > maxRetries) {
+            throw new IllegalArgumentException("Unable to generate unique subdomain after " + maxRetries + " attempts");
         }
 
         return suggestion;

@@ -11,6 +11,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -21,6 +23,7 @@ import java.io.IOException;
 
 @Component
 public class TenantFilter extends OncePerRequestFilter {
+    private static final Logger logger = LoggerFactory.getLogger(TenantFilter.class);
     public static final String TENANT_HEADER = "X-Tenant-Id";
 
     private final TenantContextService tenantContextService;
@@ -79,7 +82,7 @@ public class TenantFilter extends OncePerRequestFilter {
                     try {
                         tenantId = Long.parseLong(tenantHeader.trim());
                     } catch (NumberFormatException e) {
-                        // Invalid tenant ID format, continue without setting tenant context
+                        logger.debug("Invalid tenant ID format in header: {}", tenantHeader, e);
                     }
                 }
             }

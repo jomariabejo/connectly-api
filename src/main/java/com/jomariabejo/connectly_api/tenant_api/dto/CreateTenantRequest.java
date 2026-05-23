@@ -36,20 +36,10 @@ public class CreateTenantRequest {
 
     private Set<ProductCode> products;
 
-    // Convenience getters for backward compatibility
-    public String getTenantName() {
-        return this.name;
-    }
-
-    public String getSubdomain() {
+    /**
+     * Get subdomain with fallback to slug if not provided
+     */
+    public String getSubdomainOrSlug() {
         return this.subdomain != null ? this.subdomain : this.slug;
-    }
-
-    public BusinessType getBusinessType() {
-        return this.businessType;
-    }
-
-    public PricingTier getPricingTier() {
-        return this.pricingTier;
     }
 }

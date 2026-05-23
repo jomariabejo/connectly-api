@@ -13,14 +13,4 @@ public interface TenantSubscriptionRepository extends JpaRepository<TenantSubscr
     List<TenantSubscription> findByTenantIdAndActiveTrue(Long tenantId);
     Optional<TenantSubscription> findByTenantIdAndProductCodeAndActiveTrue(Long tenantId, ProductCode productCode);
     boolean existsByTenantIdAndProductCodeAndActiveTrue(Long tenantId, ProductCode productCode);
-    
-    /**
-     * Find subscription by string product code (for flexible feature codes)
-     */
-    Optional<TenantSubscription> findByTenantIdAndProductCode(Long tenantId, String productCode);
-    
-    /**
-     * Check if subscription exists by string product code
-     */
-    boolean existsByTenantIdAndProductCodeAndActiveTrue(Long tenantId, String productCode);
 }

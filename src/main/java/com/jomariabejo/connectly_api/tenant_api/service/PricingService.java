@@ -204,7 +204,7 @@ public class PricingService {
     public List<PricingPlan> getAllActivePricingPlans() {
         return pricingPlanRepository.findAll().stream()
                 .filter(PricingPlan::getActive)
-                .sorted(Comparator.comparing(p -> p.getPricePhp().intValue()))
+                .sorted(Comparator.comparing(PricingPlan::getPricePhp))
                 .toList();
     }
 

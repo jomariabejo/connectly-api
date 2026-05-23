@@ -77,7 +77,8 @@ public class SubdomainExtractor {
             return false;
         }
 
-        if (!subdomain.matches("^[a-z][a-z0-9-]*[a-z0-9]$")) {
+        // Pattern: start with lowercase letter, followed by lowercase letters/numbers/hyphens, end with lowercase letter/number
+        if (!subdomain.matches("^[a-z]([a-z0-9-]*[a-z0-9])?$")) {
             return false;
         }
 
