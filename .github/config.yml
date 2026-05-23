@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Question or Discussion
+    url: https://github.com/jomariabejo/connectly-api/discussions
+    about: Ask questions or discuss ideas that aren't bugs or features
+  - name: 📚 Documentation
+    url: https://github.com/jomariabejo/connectly-api/wiki
+    about: Read the project documentation and guides
+  - name: 🆘 Support
+    url: https://github.com/jomariabejo/connectly-api/discussions/categories/support
+    about: Get help with setup, configuration, or usage
