@@ -27,14 +27,6 @@ public class ApiUrlBuilder {
                 .toUriString();
     }
 
-    public String authRegistrationConfirmUrl(String token) {
-        return uriBuilder()
-                .path(ApiPaths.V1_AUTH + "/registrationConfirm")
-                .queryParam("token", token)
-                .build()
-                .toUriString();
-    }
-
     public String authResetPasswordUrl(String token) {
         return uriBuilder()
                 .path(ApiPaths.V1_AUTH + "/reset-password")

@@ -168,11 +168,19 @@ public class AuthenticationService {
         return (User) authentication.getPrincipal();
     }
 
+    @Transactional
     public User verifyUserByToken(String token) {
         Optional<VerificationToken> tokenOpt = verificationTokenService.getVerificationToken(token);
         if (tokenOpt.isPresent()) {
-            verificationTokenService.validateToken(token);
-            return tokenOpt.get().getUser();
+            try {
+                if (!verificationTokenService.validateToken(token)) {
+                    return null;
+                }
+                return tokenOpt.get().getUser();
+            } catch (InvalidVerificationException e) {
+                logger.warn("Token verification failed: {}", e.getMessage());
+                return null;
+            }
         }
 
         Optional<User> userOpt = userRepository.findByVerificationToken(token);
@@ -181,6 +189,12 @@ public class AuthenticationService {
         }
 
         User user = userOpt.get();
+        if (user.getExpiryDate() != null && user.getExpiryDate().before(new Date())) {
+            user.setVerificationToken(null);
+            userRepository.save(user);
+            return null;
+        }
+
         user.setEnabled(true);
         user.setVerificationToken(null);
         userRepository.save(user);

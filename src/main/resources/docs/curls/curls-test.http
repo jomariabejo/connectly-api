@@ -28,11 +28,6 @@ curl -i -X POST http://localhost:8082/api/v1/auth/registration \
 curl -i -X GET "http://localhost:8082/api/v1/auth/verify?token=PASTE_VERIFICATION_TOKEN_HERE"
 
 
-// Confirm Registration
-// Alternative verification endpoint backed by the verification token table.
-curl -i -X GET "http://localhost:8082/api/v1/auth/registrationConfirm?token=PASTE_VERIFICATION_TOKEN_HERE"
-
-
 // Resend Verification Email
 curl -i -X POST http://localhost:8082/api/v1/auth/verify/resend \
   -H "Content-Type: application/json" \

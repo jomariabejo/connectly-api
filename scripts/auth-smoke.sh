@@ -179,14 +179,6 @@ verify_email_token() {
   pass "verify email"
 }
 
-confirm_registration() {
-  local token="$1"
-  http_json GET "$BASE_URL/v1/auth/registrationConfirm?token=$token"
-  assert_status 200 "registration confirm"
-  assert_text_contains "successfully activated" "registration confirm response"
-  pass "registration confirm"
-}
-
 login_user() {
   local email="$1"
   local password="$2"
@@ -245,9 +237,6 @@ main() {
   local email_verify="verify.$suffix@example.com"
   local user_verify="connectly_verify_$suffix"
 
-  local email_confirm="confirm.$suffix@example.com"
-  local user_confirm="connectly_confirm_$suffix"
-
   local email_reset="reset.$suffix@example.com"
   local user_reset="connectly_reset_$suffix"
 
@@ -264,16 +253,6 @@ main() {
   verify_email_token "$verification_token"
 
   login_user "$email_verify" "$DEFAULT_PASSWORD"
-
-  register_user "$email_confirm" "$user_confirm"
-  local confirm_text
-  confirm_text=$(wait_for_message_text "$email_confirm" "Complete your Connectly registration")
-  local confirm_token
-  confirm_token=$(extract_token_from_text "$confirm_text")
-  if [[ -z "$confirm_token" ]]; then
-    fail "confirmation token not found in email"
-  fi
-  confirm_registration "$confirm_token"
 
   register_user "$email_reset" "$user_reset"
   local reset_verify_text

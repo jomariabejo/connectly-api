@@ -296,7 +296,7 @@
             "auth": {
               "type": "noauth"
             },
-            "description": "Verify user email using token"
+            "description": "Verify user email using token from the registration email. URL must be {{baseUrl}}/v1/auth/verify?token=... (not /v1/verify). Mailpit links may point at the frontend /verify-email page, which calls this endpoint."
           },
           "event": [
             {
@@ -402,31 +402,6 @@
                   "try { json = pm.response.json(); } catch (e) {}",
                   "pm.test('Request successful', function () {",
                   "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
-                  "});"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Confirm Registration",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{baseUrl}}/v1/auth/registrationConfirm?token={{verificationToken}}",
-            "auth": {
-              "type": "noauth"
-            },
-            "description": "Confirm registration via token"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('GET successful', function () {",
-                  "  pm.expect(pm.response.code).to.eql(200);",
                   "});"
                 ]
               }

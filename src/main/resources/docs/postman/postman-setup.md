@@ -68,7 +68,7 @@ Send `User Account Flow -> Register User` first. The response should contain the
 
 ### Verify email
 
-Open Mailpit, copy the verification token from the email link, then run `Verify User Email` or `Confirm Registration`.
+Open Mailpit, copy the verification token from the email link, then run `Verify Email with Token` (`GET {{baseUrl}}/v1/auth/verify?token=...`).
 
 ### Log in
 

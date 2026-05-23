@@ -210,6 +210,34 @@ class AuthenticationServiceTest {
     }
 
     @Test
+    void verifyUserByTokenWithVerificationTokenRecordEnablesUser() {
+        User user = validUser();
+        user.setEnabled(false);
+        VerificationToken verificationToken = new VerificationToken("table-token-123", user);
+        when(verificationTokenService.getVerificationToken("table-token-123"))
+                .thenReturn(Optional.of(verificationToken));
+        when(verificationTokenService.validateToken("table-token-123")).thenReturn(true);
+
+        User result = authenticationService.verifyUserByToken("table-token-123");
+
+        assertThat(result).isSameAs(user);
+        verify(verificationTokenService).validateToken("table-token-123");
+    }
+
+    @Test
+    void verifyUserByTokenWithExpiredVerificationTokenReturnsNull() {
+        User user = validUser();
+        VerificationToken verificationToken = new VerificationToken("expired-token", user);
+        when(verificationTokenService.getVerificationToken("expired-token"))
+                .thenReturn(Optional.of(verificationToken));
+        when(verificationTokenService.validateToken("expired-token")).thenReturn(false);
+
+        User result = authenticationService.verifyUserByToken("expired-token");
+
+        assertThat(result).isNull();
+    }
+
+    @Test
     void verifyUserByTokenWithNonExistingTokenReturnsNull() {
         when(verificationTokenService.getVerificationToken("invalid-token"))
                 .thenReturn(Optional.empty());

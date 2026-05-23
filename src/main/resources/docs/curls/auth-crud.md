@@ -19,7 +19,6 @@ All auth routes live under `/api/v1/auth`.
 | Create | `POST` | `/v1/auth/register/customer` | Register a customer account |
 | Create | `POST` | `/v1/auth/register/invite` | Register from an invite |
 | Read | `GET` | `/v1/auth/verify?token=...` | Verify email with a token |
-| Read | `GET` | `/v1/auth/registrationConfirm?token=...` | Confirm registration with a token |
 | Read | `GET` | `/v1/auth/invites/{token}` | Preview an invite |
 | Update | `POST` | `/v1/auth/verify/otp` | Verify email using OTP |
 | Update | `POST` | `/v1/auth/verify/resend` | Resend verification email |
@@ -78,7 +77,7 @@ curl -i -X GET "http://localhost:8082/api/v1/auth/verify?token=PASTE_VERIFICATIO
 ### Confirm registration with a token
 
 ```bash
-curl -i -X GET "http://localhost:8082/api/v1/auth/registrationConfirm?token=PASTE_VERIFICATION_TOKEN_HERE"
+curl -i -X GET "http://localhost:8082/api/v1/auth/verify?token=PASTE_VERIFICATION_TOKEN_HERE"
 ```
 
 ### Preview an invite
