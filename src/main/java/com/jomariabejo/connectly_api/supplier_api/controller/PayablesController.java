@@ -14,7 +14,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/payables")
+@RequestMapping("/api/v1/payables")
 @RequiredArgsConstructor
 @Slf4j
 public class PayablesController {

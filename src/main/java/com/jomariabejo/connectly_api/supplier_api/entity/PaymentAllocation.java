@@ -28,17 +28,11 @@ public class PaymentAllocation {
     private PurchasePayment payment;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "payables_ledger_id", nullable = false)
-    private PayablesLedger payablesLedger;
-
-    @Column(name = "invoice_id", nullable = false)
-    private Long invoiceId;
+    @JoinColumn(name = "invoice_id", nullable = false)
+    private PurchaseInvoice invoice;
 
     @Column(name = "allocated_amount", nullable = false, precision = 15, scale = 2)
     private BigDecimal allocatedAmount;
-
-    @Column(name = "allocation_order")
-    private Integer allocationOrder;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

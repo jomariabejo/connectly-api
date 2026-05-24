@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/purchase-invoices")
+@RequestMapping("/api/v1/purchase-invoices")
 @RequiredArgsConstructor
 @Slf4j
 public class PurchaseInvoiceController {

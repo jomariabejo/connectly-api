@@ -51,11 +51,17 @@ public class PayablesService {
             throw new IllegalStateException("No unpaid invoices found for supplier");
         }
 
+        // Generate payment number
+        String paymentNumber = generatePaymentNumber(tenantId);
+
+        LocalDate paymentDate = request.getPaymentDate() != null ? request.getPaymentDate() : LocalDate.now();
+
         PurchasePayment payment = PurchasePayment.builder()
                 .tenant(supplier.getTenant())
                 .supplier(supplier)
+                .paymentNumber(paymentNumber)
                 .amount(request.getPaymentAmount())
-                .paymentDate(LocalDate.now())
+                .paymentDate(paymentDate)
                 .paymentMethod(request.getPaymentMethod())
                 .referenceNumber(request.getReferenceNumber())
                 .notes(request.getNotes())
@@ -77,10 +83,8 @@ public class PayablesService {
             PaymentAllocation allocation = PaymentAllocation.builder()
                     .tenant(supplier.getTenant())
                     .payment(payment)
-                    .payablesLedger(ledger)
-                    .invoiceId(ledger.getInvoice().getId())
+                    .invoice(ledger.getInvoice())
                     .allocatedAmount(allocatedAmount)
-                    .allocationOrder(allocationOrder++)
                     .build();
 
             allocationRepository.save(allocation);
@@ -226,5 +230,11 @@ public class PayablesService {
                 .transactionDate(ledger.getTransactionDate())
                 .createdAt(ledger.getCreatedAt())
                 .build();
+    }
+
+    private String generatePaymentNumber(Long tenantId) {
+        String prefix = String.format("PAY-%s-", LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMM")));
+        long count = paymentRepository.findByTenantAndDate(tenantId, LocalDate.now()).size();
+        return prefix + String.format("%05d", count + 1);
     }
 }

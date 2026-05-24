@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/goods-receipt-notes")
+@RequestMapping("/api/v1/goods-receipt-notes")
 @RequiredArgsConstructor
 @Slf4j
 public class GRNController {
