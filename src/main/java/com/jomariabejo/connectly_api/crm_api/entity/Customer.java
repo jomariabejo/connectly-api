@@ -4,6 +4,7 @@ import com.jomariabejo.connectly_api.tenant_api.entity.Tenant;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -55,6 +56,21 @@ public class Customer {
     @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private Set<CustomerNote> notes = new HashSet<>();
+
+    @Column(name = "has_credit_line")
+    @Builder.Default
+    private Boolean hasCreditLine = false;
+
+    @Column(name = "credit_limit", precision = 15, scale = 2)
+    private BigDecimal creditLimit;
+
+    @Column(name = "total_utang", precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal totalUtang = BigDecimal.ZERO;
+
+    @Column(name = "credit_status", length = 30)
+    @Builder.Default
+    private String creditStatus = "INACTIVE";
 
     @PreUpdate
     protected void onUpdate() {
