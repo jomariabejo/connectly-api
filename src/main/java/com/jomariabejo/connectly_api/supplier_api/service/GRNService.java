@@ -7,7 +7,6 @@ import com.jomariabejo.connectly_api.tenant_api.entity.Tenant;
 import com.jomariabejo.connectly_api.tenant_api.repository.TenantRepository;
 import com.jomariabejo.connectly_api.tenant_api.service.TenantContextService;
 import com.jomariabejo.connectly_api.tenant_api.service.AuditLoggingService;
-import com.jomariabejo.connectly_api.inventory_api.service.InventoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,7 +30,6 @@ public class GRNService {
     private final TenantContextService tenantContextService;
     private final AuditLoggingService auditService;
     private final TenantRepository tenantRepository;
-    private final InventoryService inventoryService;
 
     /**
      * Create goods receipt note
@@ -135,15 +133,6 @@ public class GRNService {
                 grn.getTotalQuantityReceived().add(request.getQuantityReceived())
         );
         grnRepository.save(grn);
-
-        // Update inventory if item linked to inventory
-        if (poItem.getInventoryItem() != null) {
-            inventoryService.addStock(
-                    poItem.getInventoryItem().getId(),
-                    request.getQuantityReceived(),
-                    "GRN: " + grn.getGrnNumber()
-            );
-        }
 
         // Audit log
         auditService.logEvent(tenantId, userId, "CREATE", "GRNItem", item.getId(), null,

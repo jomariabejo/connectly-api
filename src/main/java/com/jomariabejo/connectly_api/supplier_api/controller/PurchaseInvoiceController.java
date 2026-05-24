@@ -2,7 +2,8 @@ package com.jomariabejo.connectly_api.supplier_api.controller;
 
 import com.jomariabejo.connectly_api.supplier_api.dto.*;
 import com.jomariabejo.connectly_api.supplier_api.service.PurchaseInvoiceService;
-import com.jomariabejo.connectly_api.tenant_api.context.TenantContext;
+import com.jomariabejo.connectly_api.service.AuthenticationService;
+import com.jomariabejo.connectly_api.model.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -18,11 +19,12 @@ import java.util.List;
 public class PurchaseInvoiceController {
 
     private final PurchaseInvoiceService invoiceService;
+    private final AuthenticationService authenticationService;
 
     @PostMapping
     public ResponseEntity<PurchaseInvoiceDto> createInvoice(@RequestBody CreatePurchaseInvoiceRequest request) {
-        Long userId = TenantContext.getUserId();
-        PurchaseInvoiceDto invoice = invoiceService.createInvoice(request, userId);
+        User user = authenticationService.getAuthenticatedUser();
+        PurchaseInvoiceDto invoice = invoiceService.createInvoice(request, user.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(invoice);
     }
 
@@ -30,15 +32,15 @@ public class PurchaseInvoiceController {
     public ResponseEntity<InvoiceItemDto> addLineItem(
             @PathVariable Long invoiceId,
             @RequestBody AddInvoiceItemRequest request) {
-        Long userId = TenantContext.getUserId();
-        InvoiceItemDto item = invoiceService.addLineItem(invoiceId, request, userId);
+        User user = authenticationService.getAuthenticatedUser();
+        InvoiceItemDto item = invoiceService.addLineItem(invoiceId, request, user.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(item);
     }
 
     @PutMapping("/{invoiceId}/approve")
     public ResponseEntity<PurchaseInvoiceDto> approveInvoice(@PathVariable Long invoiceId) {
-        Long userId = TenantContext.getUserId();
-        PurchaseInvoiceDto invoice = invoiceService.approveInvoice(invoiceId, userId);
+        User user = authenticationService.getAuthenticatedUser();
+        PurchaseInvoiceDto invoice = invoiceService.approveInvoice(invoiceId, user.getId());
         return ResponseEntity.ok(invoice);
     }
 

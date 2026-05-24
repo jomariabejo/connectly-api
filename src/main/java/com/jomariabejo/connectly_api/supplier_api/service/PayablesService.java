@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -53,8 +54,8 @@ public class PayablesService {
         PurchasePayment payment = PurchasePayment.builder()
                 .tenant(supplier.getTenant())
                 .supplier(supplier)
-                .paymentAmount(request.getPaymentAmount())
-                .paymentDate(LocalDateTime.now())
+                .amount(request.getPaymentAmount())
+                .paymentDate(LocalDate.now())
                 .paymentMethod(request.getPaymentMethod())
                 .referenceNumber(request.getReferenceNumber())
                 .notes(request.getNotes())
@@ -155,7 +156,7 @@ public class PayablesService {
         LocalDateTime sixtyDaysAgo = LocalDateTime.now().minusDays(60);
         LocalDateTime ninetyDaysAgo = LocalDateTime.now().minusDays(90);
 
-        List<Supplier> suppliers = supplierRepository.findByTenantOrderByNameAsc(tenantId);
+        List<Supplier> suppliers = supplierRepository.findByTenant(tenantId);
 
         return suppliers.stream()
                 .map(supplier -> {
@@ -204,8 +205,8 @@ public class PayablesService {
                 .id(payment.getId())
                 .supplierId(payment.getSupplier().getId())
                 .supplierName(payment.getSupplier().getName())
-                .paymentAmount(payment.getPaymentAmount())
-                .paymentDate(payment.getPaymentDate())
+                .paymentAmount(payment.getAmount())
+                .paymentDate(payment.getPaymentDate().atStartOfDay())
                 .paymentMethod(payment.getPaymentMethod())
                 .referenceNumber(payment.getReferenceNumber())
                 .createdAt(payment.getCreatedAt())

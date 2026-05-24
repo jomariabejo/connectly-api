@@ -19,4 +19,13 @@ public interface PayablesLedgerRepository extends JpaRepository<PayablesLedger, 
 
     @Query("SELECT COALESCE(SUM(pl.balance), 0) FROM PayablesLedger pl WHERE pl.supplier.id = :supplierId")
     BigDecimal getTotalPayablesBySupplier(@Param("supplierId") Long supplierId);
+
+    @Query("SELECT pl FROM PayablesLedger pl WHERE pl.supplier.id = :supplierId AND pl.balance > 0 ORDER BY pl.transactionDate ASC")
+    List<PayablesLedger> findUnpaidInvoicesBySupplier(@Param("supplierId") Long supplierId);
+
+    @Query("SELECT pl FROM PayablesLedger pl WHERE pl.supplier.id = :supplierId ORDER BY pl.transactionDate DESC")
+    List<PayablesLedger> findBySupplierIdOrderByTransactionDateDesc(@Param("supplierId") Long supplierId);
+
+    @Query("SELECT COALESCE(SUM(pl.balance), 0) FROM PayablesLedger pl WHERE pl.supplier.id = :supplierId")
+    BigDecimal getSupplierTotalBalance(@Param("supplierId") Long supplierId);
 }

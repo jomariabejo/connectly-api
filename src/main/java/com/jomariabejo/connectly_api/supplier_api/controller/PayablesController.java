@@ -2,7 +2,8 @@ package com.jomariabejo.connectly_api.supplier_api.controller;
 
 import com.jomariabejo.connectly_api.supplier_api.dto.*;
 import com.jomariabejo.connectly_api.supplier_api.service.PayablesService;
-import com.jomariabejo.connectly_api.tenant_api.context.TenantContext;
+import com.jomariabejo.connectly_api.service.AuthenticationService;
+import com.jomariabejo.connectly_api.model.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -19,11 +20,12 @@ import java.util.List;
 public class PayablesController {
 
     private final PayablesService payablesService;
+    private final AuthenticationService authenticationService;
 
     @PostMapping("/payments")
     public ResponseEntity<PurchasePaymentDto> recordPayment(@RequestBody RecordPaymentRequest request) {
-        Long userId = TenantContext.getUserId();
-        PurchasePaymentDto payment = payablesService.recordPayment(request, userId);
+        User user = authenticationService.getAuthenticatedUser();
+        PurchasePaymentDto payment = payablesService.recordPayment(request, user.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(payment);
     }
 

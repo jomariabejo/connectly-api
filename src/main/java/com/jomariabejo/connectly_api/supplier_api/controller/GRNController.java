@@ -2,7 +2,8 @@ package com.jomariabejo.connectly_api.supplier_api.controller;
 
 import com.jomariabejo.connectly_api.supplier_api.dto.*;
 import com.jomariabejo.connectly_api.supplier_api.service.GRNService;
-import com.jomariabejo.connectly_api.tenant_api.context.TenantContext;
+import com.jomariabejo.connectly_api.service.AuthenticationService;
+import com.jomariabejo.connectly_api.model.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -18,11 +19,12 @@ import java.util.List;
 public class GRNController {
 
     private final GRNService grnService;
+    private final AuthenticationService authenticationService;
 
     @PostMapping
     public ResponseEntity<GoodsReceiptNoteDto> createGRN(@RequestBody CreateGRNRequest request) {
-        Long userId = TenantContext.getUserId();
-        GoodsReceiptNoteDto grn = grnService.createGRN(request, userId);
+        User user = authenticationService.getAuthenticatedUser();
+        GoodsReceiptNoteDto grn = grnService.createGRN(request, user.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(grn);
     }
 
@@ -30,15 +32,15 @@ public class GRNController {
     public ResponseEntity<GRNItemDto> addReceivedItem(
             @PathVariable Long grnId,
             @RequestBody CreateGRNItemRequest request) {
-        Long userId = TenantContext.getUserId();
-        GRNItemDto item = grnService.addReceivedItem(grnId, request, userId);
+        User user = authenticationService.getAuthenticatedUser();
+        GRNItemDto item = grnService.addReceivedItem(grnId, request, user.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(item);
     }
 
     @PutMapping("/{grnId}/inspect")
     public ResponseEntity<GoodsReceiptNoteDto> inspectGRN(@PathVariable Long grnId) {
-        Long userId = TenantContext.getUserId();
-        GoodsReceiptNoteDto grn = grnService.inspectGRN(grnId, userId);
+        User user = authenticationService.getAuthenticatedUser();
+        GoodsReceiptNoteDto grn = grnService.inspectGRN(grnId, user.getId());
         return ResponseEntity.ok(grn);
     }
 
