@@ -9,7 +9,9 @@ import com.jomariabejo.connectly_api.exception.InvalidPasswordResetTokenExceptio
 import com.jomariabejo.connectly_api.exception.UnauthorizedAccessException;
 import com.jomariabejo.connectly_api.exception.UserAlreadyExistsException;
 import com.jomariabejo.connectly_api.model.PasswordResetToken;
+import com.jomariabejo.connectly_api.model.Role;
 import com.jomariabejo.connectly_api.model.User;
+import com.jomariabejo.connectly_api.repository.RoleRepository;
 import com.jomariabejo.connectly_api.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -21,6 +23,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -45,6 +48,7 @@ class AuthenticationServiceTest {
     private final RateLimitingService rateLimitingService = mock(RateLimitingService.class);
     private final AuditService auditService = mock(AuditService.class);
     private final FrontendUrlBuilder frontendUrlBuilder = new FrontendUrlBuilder("http://localhost:3000");
+    private final RoleRepository roleRepository = mock(RoleRepository.class);
 
     private final AuthenticationService authenticationService = new AuthenticationService(
             userRepository,
@@ -55,7 +59,8 @@ class AuthenticationServiceTest {
             passwordResetTokenService,
             rateLimitingService,
             auditService,
-            frontendUrlBuilder
+            frontendUrlBuilder,
+            roleRepository
     );
 
     // ==================== SIGNUP TESTS (Existing) ====================
@@ -195,11 +200,15 @@ class AuthenticationServiceTest {
         User user = validUser();
         user.setEnabled(false);
         user.setVerificationToken("verification-token-123");
+        Role userRole = new Role();
+        userRole.setName("USER");
+        user.setRoles(Set.of(userRole));
         when(verificationTokenService.getVerificationToken("verification-token-123"))
                 .thenReturn(Optional.empty());
         when(userRepository.findByVerificationToken("verification-token-123"))
                 .thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenReturn(user);
+        when(userRepository.findByEmailNormalized(user.getEmail())).thenReturn(Optional.of(user));
 
         User result = authenticationService.verifyUserByToken("verification-token-123");
 
@@ -207,6 +216,53 @@ class AuthenticationServiceTest {
         verify(userRepository).findByVerificationToken("verification-token-123");
         verify(userRepository).save(any(User.class));
         verify(verificationTokenService).revokeForUser(user);
+    }
+
+    @Test
+    void verifyUserByTokenWithVerificationTokenRowMarksUserAsEnabled() {
+        User user = validUser();
+        user.setEnabled(false);
+        user.setEmail("newuser@example.com");
+        VerificationToken verificationToken = new VerificationToken("row-token-abc", user);
+
+        User enabledUser = validUser();
+        enabledUser.setEmail("newuser@example.com");
+        enabledUser.setEnabled(true);
+
+        Role userRole = new Role();
+        userRole.setName("USER");
+
+        when(verificationTokenService.getVerificationToken("row-token-abc"))
+                .thenReturn(Optional.of(verificationToken));
+        when(verificationTokenService.validateToken("row-token-abc")).thenReturn(true);
+        when(userRepository.findByEmailNormalized("newuser@example.com"))
+                .thenReturn(Optional.of(enabledUser))
+                .thenReturn(Optional.of(enabledUser));
+        when(roleRepository.findByName("USER")).thenReturn(Optional.of(userRole));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        User result = authenticationService.verifyUserByToken("row-token-abc");
+
+        assertThat(result).isNotNull();
+        assertThat(result.isEnabled()).isTrue();
+
+        ArgumentCaptor<User> savedUser = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(savedUser.capture());
+        assertThat(savedUser.getValue().isEnabled()).isTrue();
+    }
+
+    @Test
+    void verifyUserByTokenWithExpiredVerificationTokenRowReturnsNull() {
+        VerificationToken verificationToken = new VerificationToken();
+        verificationToken.setUser(validUser());
+        when(verificationTokenService.getVerificationToken("expired-token"))
+                .thenReturn(Optional.of(verificationToken));
+        when(verificationTokenService.validateToken("expired-token")).thenReturn(false);
+
+        User result = authenticationService.verifyUserByToken("expired-token");
+
+        assertThat(result).isNull();
+        verify(userRepository, never()).save(any(User.class));
     }
 
     @Test

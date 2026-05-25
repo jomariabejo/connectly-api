@@ -87,7 +87,7 @@ CREATE TABLE IF NOT EXISTS user_settings
     created_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     -- Timestamp for when settings were last updated
-    updated_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     -- Foreign key constraint linking settings to a user
     FOREIGN KEY (user_id) REFERENCES app_user (id) ON DELETE CASCADE

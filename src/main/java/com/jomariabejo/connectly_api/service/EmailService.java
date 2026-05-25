@@ -13,6 +13,7 @@ import org.springframework.util.StreamUtils;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Year;
+import java.util.HashMap;
 import java.util.Map;
 
 @Service
@@ -40,23 +41,29 @@ public class EmailService {
 
     public void sendVerificationEmail(String toEmail, String link, String otp, String checkEmailUrl) {
         logger.info("Sending verification email to: {}", toEmail);
-        String otpSection = buildVerificationOtpSection(otp, checkEmailUrl);
-        String plainOtp = otp != null && !otp.isBlank()
-                ? "\n\nYour verification code: " + otp + "\n"
+        String safeLink = nullToEmpty(link);
+        if (link == null) {
+            logger.warn("Verification email link is null for recipient: {}", toEmail);
+        }
+        String safeCheckEmailUrl = nullToEmpty(checkEmailUrl);
+        String safeOtp = nullToEmpty(otp);
+        String otpSection = nullToEmpty(buildVerificationOtpSection(otp, safeCheckEmailUrl));
+        String plainOtp = !safeOtp.isBlank()
+                ? "\n\nYour verification code: " + safeOtp + "\n"
                 : "";
         sendTemplatedEmail(
                 toEmail,
                 "Complete your Connectly registration",
                 VERIFICATION_TEMPLATE,
-                "To confirm your Connectly account, open this link: " + link + plainOtp,
-                Map.of(
+                "To confirm your Connectly account, open this link: " + safeLink + plainOtp,
+                safeTemplateMap(
                         "preheader", "Confirm your account and start using Connectly.",
-                        "verificationLink", link,
-                        "verificationOtp", otp != null ? otp : "",
+                        "verificationLink", safeLink,
+                        "verificationOtp", safeOtp,
                         "verificationOtpSection", otpSection
                 ),
                 "verification email",
-                "Verification link: " + link + plainOtp + " | Mailpit UI: " + mailpitUiUrl
+                "Verification link: " + safeLink + plainOtp + " | Mailpit UI: " + mailpitUiUrl
         );
     }
 
@@ -75,9 +82,10 @@ public class EmailService {
     }
 
     public void sendPasswordResetEmailWithLink(String toEmail, String resetLink) {
+        String safeResetLink = nullToEmpty(resetLink);
         String plainText = "You requested a password reset for your Connectly account.\n\n"
                 + "Click the link below to reset your password:\n"
-                + resetLink + "\n\n"
+                + safeResetLink + "\n\n"
                 + "This link will expire in 15 minutes.\n\n"
                 + "If you did not request this, please ignore this email and your password will remain unchanged.\n"
                 + "For security reasons, we'll never ask you for your password via email.\n\n"
@@ -89,42 +97,46 @@ public class EmailService {
                 "Reset your Connectly password",
                 PASSWORD_RESET_LINK_TEMPLATE,
                 plainText,
-                Map.of(
+                safeTemplateMap(
                         "preheader", "Use your secure password reset link before it expires.",
-                        "resetLink", resetLink
+                        "resetLink", safeResetLink
                 ),
                 "password reset email",
-                "Password reset link: " + resetLink
+                "Password reset link: " + safeResetLink
         );
     }
 
     public void sendTenantInviteEmail(String toEmail, String tenantName, String roleLabel, String inviteLink) {
-        String plainText = "You have been invited to join " + tenantName + " on Connectly as a " + roleLabel + ".\n\n"
+        String safeTenantName = nullToEmpty(tenantName);
+        String safeRoleLabel = nullToEmpty(roleLabel);
+        String safeInviteLink = nullToEmpty(inviteLink);
+        String plainText = "You have been invited to join " + safeTenantName + " on Connectly as a " + safeRoleLabel + ".\n\n"
                 + "Complete your registration here:\n"
-                + inviteLink + "\n\n"
+                + safeInviteLink + "\n\n"
                 + "This invitation link expires in 7 days.";
 
         logger.info("Sending tenant invite email to: {}", toEmail);
         sendTemplatedEmail(
                 toEmail,
-                "You're invited to join " + tenantName + " on Connectly",
+                "You're invited to join " + safeTenantName + " on Connectly",
                 INVITE_TEMPLATE,
                 plainText,
-                Map.of(
-                        "preheader", "Accept your invitation to join " + tenantName + ".",
-                        "tenantName", tenantName,
-                        "roleLabel", roleLabel,
-                        "inviteLink", inviteLink
+                safeTemplateMap(
+                        "preheader", "Accept your invitation to join " + safeTenantName + ".",
+                        "tenantName", safeTenantName,
+                        "roleLabel", safeRoleLabel,
+                        "inviteLink", safeInviteLink
                 ),
                 "tenant invite email",
-                "Invite link: " + inviteLink
+                "Invite link: " + safeInviteLink
         );
     }
 
     public void sendPasswordResetOtp(String toEmail, String otp) {
+        String safeOtp = nullToEmpty(otp);
         String plainText = "You requested a password reset for your Connectly account.\n\n"
                 + "Your password reset verification code is:\n\n"
-                + otp + "\n\n"
+                + safeOtp + "\n\n"
                 + "This code will expire in 15 minutes.\n"
                 + "You can attempt to enter this code 3 times before requesting a new one.\n\n"
                 + "If you did not request this, please ignore this email and your password will remain unchanged.\n"
@@ -137,13 +149,28 @@ public class EmailService {
                 "Your Connectly password reset code",
                 PASSWORD_RESET_OTP_TEMPLATE,
                 plainText,
-                Map.of(
+                safeTemplateMap(
                         "preheader", "Use this one-time code to reset your password.",
-                        "otp", otp
+                        "otp", safeOtp
                 ),
                 "password reset OTP email",
-                "Password reset OTP: " + otp
+                "Password reset OTP: " + safeOtp
         );
+    }
+
+    private Map<String, String> safeTemplateMap(String... keysAndValues) {
+        if (keysAndValues.length % 2 != 0) {
+            throw new IllegalArgumentException("Expected an even number of key/value arguments");
+        }
+        Map<String, String> map = new HashMap<>();
+        for (int i = 0; i < keysAndValues.length; i += 2) {
+            map.put(keysAndValues[i], nullToEmpty(keysAndValues[i + 1]));
+        }
+        return map;
+    }
+
+    private String nullToEmpty(String value) {
+        return value != null ? value : "";
     }
 
     private void sendTemplatedEmail(

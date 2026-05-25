@@ -33,6 +33,20 @@ class EmailServiceTest {
     }
 
     @Test
+    void sendVerificationEmailDoesNotThrowWhenLinkIsNull() {
+        JavaMailSender mailSender = failingMailSender();
+        EmailService emailService = new EmailService(mailSender);
+        ReflectionTestUtils.setField(emailService, "failOnError", false);
+
+        assertThatCode(() -> emailService.sendVerificationEmail(
+                "test@example.com",
+                null,
+                "123456",
+                "http://localhost:3000/check-email"
+        )).doesNotThrowAnyException();
+    }
+
+    @Test
     void sendVerificationEmailThrowsWhenFailOnErrorIsTrue() {
         JavaMailSender mailSender = failingMailSender();
         EmailService emailService = new EmailService(mailSender);

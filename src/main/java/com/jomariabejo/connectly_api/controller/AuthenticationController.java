@@ -1,5 +1,6 @@
 package com.jomariabejo.connectly_api.controller;
 
+import com.jomariabejo.connectly_api.common.FrontendUrlBuilder;
 import com.jomariabejo.connectly_api.dto.LoginResponse;
 import com.jomariabejo.connectly_api.dto.RegisterUserDto;
 import com.jomariabejo.connectly_api.dto.LoginUserDto;
@@ -11,9 +12,6 @@ import com.jomariabejo.connectly_api.dto.GenericResponse;
 import com.jomariabejo.connectly_api.dto.user.UserResponseDto;
 import com.jomariabejo.connectly_api.mapper.UserMapper;
 import com.jomariabejo.connectly_api.model.User;
-import com.jomariabejo.connectly_api.model.VerificationToken;
-import com.jomariabejo.connectly_api.repository.UserRepository;
-import com.jomariabejo.connectly_api.repository.VerificationTokenRepository;
 import com.jomariabejo.connectly_api.service.AuthenticationService;
 import com.jomariabejo.connectly_api.service.JwtService;
 import com.jomariabejo.connectly_api.tenant_api.dto.InvitePreviewDto;
@@ -26,7 +24,7 @@ import com.jomariabejo.connectly_api.tenant_api.service.TenantService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -35,7 +33,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Optional;
+import java.net.URI;
 
 @RequestMapping("/v1/auth")
 @RestController
@@ -43,38 +41,39 @@ public class AuthenticationController {
     private static final Logger log = LoggerFactory.getLogger(AuthenticationController.class);
 
     private final JwtService jwtService;
-
-    private final VerificationTokenRepository tokenRepository;
-
     private final AuthenticationService authenticationService;
-
     private final UserMapper userMapper;
     private final TenantService tenantService;
     private final ActorRegistrationService actorRegistrationService;
     private final TenantInvitationService tenantInvitationService;
     private final LoginRedirectService loginRedirectService;
-
-    @Autowired
-    private UserRepository userRepository;
+    private final FrontendUrlBuilder frontendUrlBuilder;
 
     public AuthenticationController(
             JwtService jwtService,
-            VerificationTokenRepository tokenRepository,
             AuthenticationService authenticationService,
             UserMapper userMapper,
             TenantService tenantService,
             ActorRegistrationService actorRegistrationService,
             TenantInvitationService tenantInvitationService,
-            LoginRedirectService loginRedirectService
+            LoginRedirectService loginRedirectService,
+            FrontendUrlBuilder frontendUrlBuilder
     ) {
         this.jwtService = jwtService;
-        this.tokenRepository = tokenRepository;
         this.authenticationService = authenticationService;
         this.userMapper = userMapper;
         this.tenantService = tenantService;
         this.actorRegistrationService = actorRegistrationService;
         this.tenantInvitationService = tenantInvitationService;
         this.loginRedirectService = loginRedirectService;
+        this.frontendUrlBuilder = frontendUrlBuilder;
+    }
+
+    @GetMapping("/registration")
+    public ResponseEntity<Void> registrationRedirect() {
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(URI.create(frontendUrlBuilder.signupUrl()))
+                .build();
     }
 
     @PostMapping("/registration")
@@ -121,20 +120,10 @@ public class AuthenticationController {
 
     @GetMapping("/registrationConfirm")
     public ResponseEntity<?> confirmRegistration(@RequestParam("token") String token) {
-
-        Optional<VerificationToken> verificationTokenOptional = tokenRepository.findByToken(token);
-        if (!verificationTokenOptional.isPresent()) {
-            return ResponseEntity.badRequest().body("Invalid verification token");
+        User user = authenticationService.verifyUserByToken(token);
+        if (user == null) {
+            return ResponseEntity.badRequest().body("Invalid or expired verification token");
         }
-
-        VerificationToken verificationToken = verificationTokenOptional.get();
-        
-        User user = verificationToken.getUser();
-        user.setEnabled(true);
-        userRepository.save(user);
-
-        tokenRepository.delete(verificationToken);
-
         return ResponseEntity.ok("Your account has been successfully activated. You can now login.");
     }
 

@@ -3,9 +3,9 @@ package com.jomariabejo.connectly_api.tenant_api.service;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.tenant_api.dto.TenantSummaryDto;
 import com.jomariabejo.connectly_api.tenant_api.entity.TenantRole;
+import com.jomariabejo.connectly_api.tenant_api.support.TenantRolePolicy;
 import org.springframework.stereotype.Service;
 
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -21,7 +21,7 @@ public class LoginRedirectService {
         }
 
         if (tenants == null || tenants.isEmpty()) {
-            return "/admin/setup";
+            return "/onboarding/store";
         }
 
         if (tenants.size() > 1) {
@@ -32,12 +32,10 @@ public class LoginRedirectService {
                 .map(TenantSummaryDto::getRole)
                 .collect(Collectors.toSet());
 
-        EnumSet<TenantRole> adminRoles = EnumSet.of(TenantRole.OWNER, TenantRole.ADMIN, TenantRole.STAFF);
-        boolean hasAdmin = roles.stream().anyMatch(adminRoles::contains);
+        boolean hasStoreStaff = roles.stream().anyMatch(TenantRolePolicy::isStoreStaff);
         boolean hasCustomer = roles.contains(TenantRole.CUSTOMER);
-        boolean hasEmployee = roles.contains(TenantRole.EMPLOYEE);
 
-        if (hasAdmin && (hasCustomer || hasEmployee)) {
+        if (hasStoreStaff && hasCustomer) {
             return "/portals";
         }
 
@@ -45,9 +43,9 @@ public class LoginRedirectService {
         if (role == TenantRole.CUSTOMER) {
             return "/customer";
         }
-        if (role == TenantRole.EMPLOYEE) {
-            return "/employee";
+        if (TenantRolePolicy.isStoreStaff(role)) {
+            return "/dashboard";
         }
-        return "/admin";
+        return "/onboarding/store";
     }
 }

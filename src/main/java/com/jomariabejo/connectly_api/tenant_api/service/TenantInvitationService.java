@@ -11,6 +11,7 @@ import com.jomariabejo.connectly_api.tenant_api.dto.InviteResponseDto;
 import com.jomariabejo.connectly_api.tenant_api.entity.Tenant;
 import com.jomariabejo.connectly_api.tenant_api.entity.TenantInvitation;
 import com.jomariabejo.connectly_api.tenant_api.entity.TenantRole;
+import com.jomariabejo.connectly_api.tenant_api.support.TenantRolePolicy;
 import com.jomariabejo.connectly_api.tenant_api.exception.InvalidInvitationException;
 import com.jomariabejo.connectly_api.tenant_api.exception.TenantAccessDeniedException;
 import com.jomariabejo.connectly_api.tenant_api.exception.TenantNotFoundException;
@@ -124,8 +125,12 @@ public class TenantInvitationService {
     }
 
     private void validateInviteRole(TenantRole role) {
-        if (role != TenantRole.CUSTOMER && role != TenantRole.EMPLOYEE) {
-            throw new InvalidInvitationException("Invites can only be created for CUSTOMER or EMPLOYEE roles");
+        if (role == TenantRole.OWNER) {
+            throw new InvalidInvitationException("Store ownership is assigned when creating a store, not via invite");
+        }
+        if (!TenantRolePolicy.isInvitable(role)) {
+            throw new InvalidInvitationException(
+                    "Invites can only be created for ADMIN, MANAGER, WAREHOUSE, CASHIER, INVENTORY, or CUSTOMER roles");
         }
     }
 
@@ -165,7 +170,7 @@ public class TenantInvitationService {
 
     private void requireInviteAdmin() {
         TenantRole role = TenantContext.getTenantRole();
-        if (role != TenantRole.OWNER && role != TenantRole.ADMIN && role != TenantRole.STAFF) {
+        if (!TenantRolePolicy.canManageTeam(role)) {
             throw new TenantAccessDeniedException("Insufficient permissions to manage invitations");
         }
     }

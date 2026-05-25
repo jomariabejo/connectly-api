@@ -9,11 +9,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import jakarta.validation.ConstraintViolationException;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -220,6 +223,19 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.BAD_REQUEST, "Validation failed", ex);
     }
 
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleHttpRequestMethodNotSupportedException(
+            HttpRequestMethodNotSupportedException ex) {
+        logger.debug("HTTP method not supported: {}", ex.getMessage());
+        String message = buildMethodNotAllowedMessage(ex);
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(new ErrorResponse(
+                HttpStatus.METHOD_NOT_ALLOWED.value(),
+                "Method not allowed",
+                message,
+                System.currentTimeMillis()
+        ));
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
         String message = resolveDataIntegrityMessage(ex);
@@ -242,16 +258,35 @@ public class GlobalExceptionHandler {
     }
 
     private ResponseEntity<ErrorResponse> buildErrorResponse(HttpStatus status, String errorTitle, Exception ex) {
-        logger.error("{}: {}", errorTitle, ex.getMessage());
+        String message = resolveExceptionMessage(ex);
+        logger.error("{}: {}", errorTitle, message);
 
         ErrorResponse errorResponse = new ErrorResponse(
                 status.value(),
                 errorTitle,
-                ex.getMessage(),
+                message,
                 System.currentTimeMillis()
         );
 
         return ResponseEntity.status(status).body(errorResponse);
+    }
+
+    private String resolveExceptionMessage(Exception ex) {
+        if (ex.getMessage() != null && !ex.getMessage().isBlank()) {
+            return ex.getMessage();
+        }
+        return "An unexpected error occurred. Please try again later.";
+    }
+
+    private String buildMethodNotAllowedMessage(HttpRequestMethodNotSupportedException ex) {
+        Set<?> supportedMethods = ex.getSupportedHttpMethods();
+        if (supportedMethods == null || supportedMethods.isEmpty()) {
+            return "HTTP method not allowed for this endpoint";
+        }
+        String allowed = supportedMethods.stream()
+                .map(Object::toString)
+                .collect(Collectors.joining(", "));
+        return "HTTP method not allowed for this endpoint. Supported methods: " + allowed;
     }
 
     private String resolveDataIntegrityMessage(DataIntegrityViolationException ex) {

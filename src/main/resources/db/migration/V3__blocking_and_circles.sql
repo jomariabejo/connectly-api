@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS circle
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     -- Timestamp for when circle was last updated
-    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     -- Foreign key constraint linking circle to owner
     FOREIGN KEY (user_id) REFERENCES app_user (id) ON DELETE CASCADE,

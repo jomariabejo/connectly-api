@@ -65,7 +65,7 @@ CREATE INDEX idx_orders_tenant_status ON orders(tenant_id, status);
 ALTER TABLE inventory_items ADD COLUMN tenant_id BIGINT REFERENCES tenants(id);
 UPDATE inventory_items SET tenant_id = 1 WHERE tenant_id IS NULL;
 ALTER TABLE inventory_items ALTER COLUMN tenant_id SET NOT NULL;
-ALTER TABLE inventory_items DROP CONSTRAINT IF EXISTS uk_inventory_items_sku;
+ALTER TABLE inventory_items DROP CONSTRAINT IF EXISTS uk_inventory_items_sku CASCADE;
 ALTER TABLE inventory_items ADD CONSTRAINT uk_inventory_items_tenant_sku UNIQUE (tenant_id, sku);
 CREATE INDEX idx_inventory_items_tenant_id ON inventory_items(tenant_id);
 

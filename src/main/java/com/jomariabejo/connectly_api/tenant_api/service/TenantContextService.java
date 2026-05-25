@@ -5,6 +5,7 @@ import com.jomariabejo.connectly_api.tenant_api.context.TenantContext;
 import com.jomariabejo.connectly_api.tenant_api.entity.ProductCode;
 import com.jomariabejo.connectly_api.tenant_api.entity.Tenant;
 import com.jomariabejo.connectly_api.tenant_api.entity.TenantSubscription;
+import com.jomariabejo.connectly_api.tenant_api.entity.TenantRole;
 import com.jomariabejo.connectly_api.tenant_api.entity.TenantUser;
 import com.jomariabejo.connectly_api.tenant_api.exception.ProductNotSubscribedException;
 import com.jomariabejo.connectly_api.tenant_api.exception.TenantAccessDeniedException;
@@ -56,6 +57,14 @@ public class TenantContextService {
             throw new TenantAccessDeniedException("X-Tenant-Id header is required");
         }
         return tenantId;
+    }
+
+    public TenantRole requireTenantRole() {
+        TenantRole role = TenantContext.getTenantRole();
+        if (role == null) {
+            throw new TenantAccessDeniedException("Tenant role is not set for this request");
+        }
+        return role;
     }
 
     public void requireProduct(ProductCode productCode) {

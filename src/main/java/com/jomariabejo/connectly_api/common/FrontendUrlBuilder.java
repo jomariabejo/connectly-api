@@ -53,6 +53,13 @@ public class FrontendUrlBuilder {
                 .toUriString();
     }
 
+    public String signupUrl() {
+        return UriComponentsBuilder.fromUriString(frontendBaseUrl)
+                .path("/signup")
+                .build()
+                .toUriString();
+    }
+
     static String normalizeBaseUrl(String baseUrl) {
         if (baseUrl == null || baseUrl.isBlank()) {
             return "http://localhost:3000";

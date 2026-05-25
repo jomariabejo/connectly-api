@@ -128,7 +128,7 @@ public class OrderService {
 
         if (filterDto.getCustomerId() != null) {
             spec = spec.and(OrderSpecification.withCustomerId(filterDto.getCustomerId()));
-        } else if (role == null || role == TenantRole.CUSTOMER || role == TenantRole.EMPLOYEE) {
+        } else if (role == null || role == TenantRole.CUSTOMER || role == TenantRole.CASHIER) {
             spec = spec.and(OrderSpecification.withCustomerId(authenticatedUser.getId()));
         }
 

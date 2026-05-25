@@ -9,7 +9,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
@@ -52,8 +51,7 @@ public class PaymentEvent {
     @Column(name = "event_type", nullable = false, length = 160)
     private String eventType;
 
-    @Lob
-    @Column(name = "raw_payload", nullable = false)
+    @Column(name = "raw_payload", nullable = false, columnDefinition = "TEXT")
     private String rawPayload;
 
     @Column(name = "received_at", nullable = false)

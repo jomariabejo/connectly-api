@@ -14,4 +14,6 @@ public interface TenantInvitationRepository extends JpaRepository<TenantInvitati
     List<TenantInvitation> findByTenantIdAndAcceptedAtIsNullOrderByCreatedAtDesc(Long tenantId);
 
     boolean existsByTenantIdAndEmailAndAcceptedAtIsNull(Long tenantId, String email);
+
+    Optional<TenantInvitation> findByIdAndTenantId(Long id, Long tenantId);
 }

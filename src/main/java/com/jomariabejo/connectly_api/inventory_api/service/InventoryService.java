@@ -18,8 +18,12 @@ import com.jomariabejo.connectly_api.inventory_api.repository.InventoryItemRepos
 import com.jomariabejo.connectly_api.inventory_api.repository.InventoryMovementRepository;
 import com.jomariabejo.connectly_api.inventory_api.repository.InventoryReservationRepository;
 import com.jomariabejo.connectly_api.orders_api.dto.OrderItemDto;
+import com.jomariabejo.connectly_api.tenant_api.context.TenantContext;
 import com.jomariabejo.connectly_api.tenant_api.entity.Tenant;
+import com.jomariabejo.connectly_api.tenant_api.entity.TenantRole;
+import com.jomariabejo.connectly_api.tenant_api.exception.TenantAccessDeniedException;
 import com.jomariabejo.connectly_api.tenant_api.service.TenantContextService;
+import com.jomariabejo.connectly_api.tenant_api.support.TenantRolePolicy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -67,6 +71,7 @@ public class InventoryService {
 
     @Transactional
     public InventoryItemDto createInventoryItem(CreateInventoryItemRequest request) {
+        requireInventoryWriteAccess();
         String sku = normalizeSku(request.getSku());
         Long tenantId = tenantContextService.requireTenantId();
         Tenant tenant = tenantContextService.requireTenant();
@@ -91,6 +96,7 @@ public class InventoryService {
 
     @Transactional
     public InventoryItemDto updateInventoryItem(String sku, UpdateInventoryItemRequest request) {
+        requireInventoryWriteAccess();
         InventoryItem item = findItemForUpdate(sku);
         if (request.getName() != null) {
             item.setName(requireText(request.getName(), "Name is required"));
@@ -123,6 +129,7 @@ public class InventoryService {
 
     @Transactional
     public InventoryItemDto adjustInventory(String sku, AdjustInventoryRequest request) {
+        requireInventoryWriteAccess();
         InventoryItem item = findItemForUpdate(sku);
         int delta = request.getQuantityDelta() == null ? 0 : request.getQuantityDelta();
         int newOnHand = item.getOnHandQuantity() + delta;
@@ -223,6 +230,14 @@ public class InventoryService {
                 .price(item.getUnitPrice())
                 .subtotal(item.getUnitPrice().multiply(BigDecimal.valueOf(quantity)))
                 .build();
+    }
+
+    private void requireInventoryWriteAccess() {
+        TenantRole role = TenantContext.getTenantRole();
+        if (!TenantRolePolicy.canWriteInventory(role)) {
+            throw new TenantAccessDeniedException(
+                    "Your store role does not have permission to modify inventory");
+        }
     }
 
     private InventoryItem findItemForUpdate(String sku) {

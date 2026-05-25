@@ -6,6 +6,9 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -38,6 +41,24 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getStatusCode().value()).isEqualTo(401);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getMessage()).isEqualTo("Invalid email or password.");
+    }
+
+    @Test
+    void httpRequestMethodNotSupportedReturns405WithSupportedMethods() {
+        HttpRequestMethodNotSupportedException exception = new HttpRequestMethodNotSupportedException(
+                "PATCH",
+                List.of("GET", "POST")
+        );
+
+        ResponseEntity<ErrorResponse> response =
+                handler.handleHttpRequestMethodNotSupportedException(exception);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(405);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getError()).isEqualTo("Method not allowed");
+        assertThat(response.getBody().getMessage()).contains("Supported methods");
+        assertThat(response.getBody().getMessage()).contains("GET");
+        assertThat(response.getBody().getMessage()).contains("POST");
     }
 
     @Test

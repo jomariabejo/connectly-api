@@ -32,7 +32,7 @@ public class TenantUser {
     @Enumerated(EnumType.STRING)
     @Column(name = "tenant_role", nullable = false, length = 30)
     @Builder.Default
-    private TenantRole tenantRole = TenantRole.STAFF;
+    private TenantRole tenantRole = TenantRole.MANAGER;
 
     @Column(nullable = false)
     @Builder.Default

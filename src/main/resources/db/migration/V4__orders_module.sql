@@ -3,7 +3,7 @@
 
 -- Create orders table
 CREATE TABLE orders (
-    id SERIAL PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     customer_id BIGINT NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
     total_amount DECIMAL(15,2) NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
@@ -14,7 +14,7 @@ CREATE TABLE orders (
 
 -- Create order_items table
 CREATE TABLE order_items (
-    id SERIAL PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     order_id BIGINT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
     product_name VARCHAR(255) NOT NULL,
     quantity INTEGER NOT NULL DEFAULT 1,
@@ -24,7 +24,7 @@ CREATE TABLE order_items (
 
 -- Create order_status_history table (audit trail)
 CREATE TABLE order_status_history (
-    id SERIAL PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     order_id BIGINT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
     old_status VARCHAR(20),
     new_status VARCHAR(20) NOT NULL,

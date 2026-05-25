@@ -58,4 +58,24 @@ public class InventoryController {
             @RequestBody @Valid AdjustInventoryRequest request) {
         return ResponseEntity.ok(inventoryService.adjustInventory(sku, request));
     }
+
+    @PostMapping("/inventory")
+    public ResponseEntity<InventoryItemDto> createInventoryItemForTenant(
+            @RequestBody @Valid CreateInventoryItemRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(inventoryService.createInventoryItem(request));
+    }
+
+    @PatchMapping("/inventory/{sku}")
+    public ResponseEntity<InventoryItemDto> updateInventoryItemForTenant(
+            @PathVariable String sku,
+            @RequestBody @Valid UpdateInventoryItemRequest request) {
+        return ResponseEntity.ok(inventoryService.updateInventoryItem(sku, request));
+    }
+
+    @PostMapping("/inventory/{sku}/adjustments")
+    public ResponseEntity<InventoryItemDto> adjustInventoryForTenant(
+            @PathVariable String sku,
+            @RequestBody @Valid AdjustInventoryRequest request) {
+        return ResponseEntity.ok(inventoryService.adjustInventory(sku, request));
+    }
 }

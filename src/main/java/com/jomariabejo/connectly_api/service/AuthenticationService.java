@@ -10,8 +10,10 @@ import com.jomariabejo.connectly_api.exception.UnauthorizedAccessException;
 import com.jomariabejo.connectly_api.exception.InvalidPasswordResetTokenException;
 import com.jomariabejo.connectly_api.exception.PasswordResetTokenExpiredException;
 import com.jomariabejo.connectly_api.exception.UserAlreadyExistsException;
+import com.jomariabejo.connectly_api.model.Role;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.model.PasswordResetToken;
+import com.jomariabejo.connectly_api.repository.RoleRepository;
 import com.jomariabejo.connectly_api.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -44,6 +47,7 @@ public class AuthenticationService {
     private final RateLimitingService rateLimitingService;
     private final AuditService auditService;
     private final FrontendUrlBuilder frontendUrlBuilder;
+    private final RoleRepository roleRepository;
 
     @Value("${security.password.validation.min-length:8}")
     private int passwordMinLength;
@@ -57,7 +61,8 @@ public class AuthenticationService {
             PasswordResetTokenService passwordResetTokenService,
             RateLimitingService rateLimitingService,
             AuditService auditService,
-            FrontendUrlBuilder frontendUrlBuilder) {
+            FrontendUrlBuilder frontendUrlBuilder,
+            RoleRepository roleRepository) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -67,8 +72,10 @@ public class AuthenticationService {
         this.rateLimitingService = rateLimitingService;
         this.auditService = auditService;
         this.frontendUrlBuilder = frontendUrlBuilder;
+        this.roleRepository = roleRepository;
     }
 
+    @Transactional
     public User signup(RegisterUserDto registerUserDto) {
         // Check if user already exists
         if (userRepository.existsAnyByUsername(registerUserDto.getUsername())) {
@@ -102,13 +109,29 @@ public class AuthenticationService {
     }
 
     public void sendVerificationEmailForUser(User user, String token) {
+        if (user == null || user.getEmail() == null || user.getEmail().isBlank()) {
+            throw new IllegalStateException("Cannot send verification email: user email is missing");
+        }
+        if (token == null || token.isBlank()) {
+            throw new IllegalStateException("Cannot send verification email: token is missing");
+        }
+
         VerificationToken verificationToken = verificationTokenService.createVerificationToken(user, token);
+        if (verificationToken.getOtp() == null || verificationToken.getOtp().isBlank()) {
+            throw new IllegalStateException("Cannot send verification email: OTP was not generated");
+        }
+
         String verificationLink = frontendUrlBuilder.verifyEmailUrl(token);
+        if (verificationLink == null || verificationLink.isBlank()) {
+            throw new IllegalStateException("Cannot send verification email: verification URL could not be built");
+        }
+
+        String checkEmailUrl = frontendUrlBuilder.checkEmailUrl();
         emailService.sendVerificationEmail(
                 user.getEmail(),
                 verificationLink,
                 verificationToken.getOtp(),
-                frontendUrlBuilder.checkEmailUrl()
+                checkEmailUrl != null ? checkEmailUrl : ""
         );
     }
 
@@ -119,7 +142,25 @@ public class AuthenticationService {
             throw new InvalidVerificationException("Too many verification attempts. Please try again later.");
         }
         rateLimitingService.recordAttempt(normalizedEmail, "verify_otp");
-        verificationTokenService.verifyByOtp(normalizedEmail, otp);
+        User user = verificationTokenService.verifyByOtp(normalizedEmail, otp);
+        ensurePlatformUserRole(user);
+    }
+
+    @Transactional
+    public void ensurePlatformUserRole(User user) {
+        User managed = userRepository.findByEmailNormalized(user.getEmail())
+                .orElseThrow(() -> new IllegalStateException("User not found: " + user.getEmail()));
+        if (managed.getRoles() != null && !managed.getRoles().isEmpty()) {
+            return;
+        }
+        Role userRole = roleRepository.findByName("USER")
+                .orElseThrow(() -> new IllegalStateException("Platform role USER is not configured"));
+        if (managed.getRoles() == null) {
+            managed.setRoles(new HashSet<>());
+        }
+        managed.getRoles().add(userRole);
+        userRepository.save(managed);
+        logger.info("Assigned platform role USER to {}", managed.getEmail());
     }
 
     public void resendVerificationEmail(String email) {
@@ -168,11 +209,21 @@ public class AuthenticationService {
         return (User) authentication.getPrincipal();
     }
 
+    @Transactional
     public User verifyUserByToken(String token) {
         Optional<VerificationToken> tokenOpt = verificationTokenService.getVerificationToken(token);
         if (tokenOpt.isPresent()) {
-            verificationTokenService.validateToken(token);
-            return tokenOpt.get().getUser();
+            String email = tokenOpt.get().getUser().getEmail();
+            boolean activated = verificationTokenService.validateToken(token);
+            if (!activated) {
+                return null;
+            }
+            User user = userRepository.findByEmailNormalized(email).orElse(null);
+            if (user == null) {
+                return null;
+            }
+            ensurePlatformUserRole(user);
+            return userRepository.findByEmailNormalized(email).orElse(user);
         }
 
         Optional<User> userOpt = userRepository.findByVerificationToken(token);
@@ -185,7 +236,8 @@ public class AuthenticationService {
         user.setVerificationToken(null);
         userRepository.save(user);
         verificationTokenService.revokeForUser(user);
-        return user;
+        ensurePlatformUserRole(user);
+        return userRepository.findByEmailNormalized(user.getEmail()).orElse(user);
     }
 
     /**
