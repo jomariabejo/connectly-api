@@ -9,14 +9,27 @@ import org.springframework.stereotype.Component;
 @Aspect
 @Component
 public class ProductSubscriptionAspect {
+
     private final TenantContextService tenantContextService;
 
     public ProductSubscriptionAspect(TenantContextService tenantContextService) {
         this.tenantContextService = tenantContextService;
     }
 
-    @Before("@within(requiresProduct) || @annotation(requiresProduct)")
-    public void checkProductSubscription(RequiresProduct requiresProduct) {
+    @Before("@annotation(requiresProduct)")
+    public void checkMethodLevelProduct(RequiresProduct requiresProduct) {
+        validateProductAccess(requiresProduct);
+    }
+
+    @Before("""
+        @within(requiresProduct) &&
+        !@annotation(com.jomariabejo.connectly_api.tenant_api.annotation.RequiresProduct)
+        """)
+    public void checkClassLevelProduct(RequiresProduct requiresProduct) {
+        validateProductAccess(requiresProduct);
+    }
+
+    private void validateProductAccess(RequiresProduct requiresProduct) {
         tenantContextService.requireProduct(requiresProduct.value());
     }
 }
