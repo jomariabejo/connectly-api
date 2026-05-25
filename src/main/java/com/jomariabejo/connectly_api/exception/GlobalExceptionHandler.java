@@ -111,6 +111,18 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.CONFLICT, "Insufficient inventory", ex);
     }
 
+    @ExceptionHandler(com.jomariabejo.connectly_api.purchase_order_api.exception.PurchaseOrderNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handlePurchaseOrderNotFoundException(
+            com.jomariabejo.connectly_api.purchase_order_api.exception.PurchaseOrderNotFoundException ex) {
+        return buildErrorResponse(HttpStatus.NOT_FOUND, "Purchase order not found", ex);
+    }
+
+    @ExceptionHandler(com.jomariabejo.connectly_api.purchase_order_api.exception.InvalidPurchaseOrderRequestException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidPurchaseOrderRequestException(
+            com.jomariabejo.connectly_api.purchase_order_api.exception.InvalidPurchaseOrderRequestException ex) {
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "Invalid purchase order request", ex);
+    }
+
     @ExceptionHandler(com.jomariabejo.connectly_api.payments_api.exception.PaymentNotFoundException.class)
     public ResponseEntity<ErrorResponse> handlePaymentNotFoundException(com.jomariabejo.connectly_api.payments_api.exception.PaymentNotFoundException ex) {
         return buildErrorResponse(HttpStatus.NOT_FOUND, "Payment not found", ex);

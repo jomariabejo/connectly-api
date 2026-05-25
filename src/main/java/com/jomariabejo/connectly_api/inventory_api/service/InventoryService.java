@@ -204,6 +204,20 @@ public class InventoryService {
     }
 
     @Transactional
+    public void receivePurchaseOrderStock(String sku, int quantity, Long purchaseOrderId) {
+        requireInventoryWriteAccess();
+        if (quantity <= 0) {
+            throw new InvalidInventoryRequestException("Receive quantity must be greater than 0");
+        }
+        InventoryItem item = findItemForUpdate(sku);
+        ensureActive(item);
+        item.setOnHandQuantity(item.getOnHandQuantity() + quantity);
+        inventoryItemRepository.save(item);
+        recordMovement(item.getSku(), InventoryMovementType.RECEIPT, quantity, null, null, purchaseOrderId,
+                "Purchase order receipt");
+    }
+
+    @Transactional
     public void releaseReservationsForOrder(Long orderId, String reason) {
         List<InventoryReservation> reservations = reservationRepository.findByOrderIdAndStatus(orderId, InventoryReservationStatus.RESERVED);
         for (InventoryReservation reservation : reservations) {
@@ -254,12 +268,18 @@ public class InventoryService {
     }
 
     private void recordMovement(String sku, InventoryMovementType type, Integer quantity, Long orderId, Long paymentId, String reason) {
+        recordMovement(sku, type, quantity, orderId, paymentId, null, reason);
+    }
+
+    private void recordMovement(String sku, InventoryMovementType type, Integer quantity, Long orderId, Long paymentId,
+                                Long purchaseOrderId, String reason) {
         movementRepository.save(InventoryMovement.builder()
                 .sku(sku)
                 .movementType(type)
                 .quantity(quantity)
                 .orderId(orderId)
                 .paymentId(paymentId)
+                .purchaseOrderId(purchaseOrderId)
                 .reason(reason)
                 .build());
     }

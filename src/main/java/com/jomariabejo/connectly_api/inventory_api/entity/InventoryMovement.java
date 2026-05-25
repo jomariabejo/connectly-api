@@ -44,6 +44,9 @@ public class InventoryMovement {
     @Column(name = "payment_id")
     private Long paymentId;
 
+    @Column(name = "purchase_order_id")
+    private Long purchaseOrderId;
+
     @Column(length = 255)
     private String reason;
 

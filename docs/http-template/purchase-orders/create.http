@@ -1,0 +1,56 @@
+### Purchase Orders — requires auth + tenant header
+### Set variables after login (default tenant id = 1 for sari-sari seed)
+
+@baseUrl = http://localhost:8080/api
+@token = {{login.response.body.token}}
+@tenantId = 1
+
+### Login (adjust email/password to your demo user)
+# @name login
+POST {{baseUrl}}/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "owner@example.com",
+  "password": "password"
+}
+
+### Create purchase order
+# @name createPo
+POST {{baseUrl}}/v1/purchase-orders
+Authorization: Bearer {{token}}
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+{
+  "supplierName": "ABC Distributors",
+  "notes": "Weekly restock",
+  "expectedDeliveryDate": "2026-05-30",
+  "lines": [
+    { "sku": "NOOD-001", "quantity": 50 },
+    { "sku": "CAN-001", "quantity": 20, "unitCost": 110.00 }
+  ]
+}
+
+### List purchase orders
+GET {{baseUrl}}/v1/purchase-orders
+Authorization: Bearer {{token}}
+X-Tenant-Id: {{tenantId}}
+
+### Get purchase order by id
+GET {{baseUrl}}/v1/purchase-orders/{{createPo.response.body.id}}
+Authorization: Bearer {{token}}
+X-Tenant-Id: {{tenantId}}
+
+### Receive goods (partial or full)
+POST {{baseUrl}}/v1/purchase-orders/{{createPo.response.body.id}}/receive
+Authorization: Bearer {{token}}
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+{
+  "lines": [
+    { "sku": "NOOD-001", "quantityReceived": 50 },
+    { "sku": "CAN-001", "quantityReceived": 20 }
+  ]
+}
