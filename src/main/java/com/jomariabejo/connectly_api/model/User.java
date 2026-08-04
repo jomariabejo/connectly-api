@@ -87,6 +87,17 @@ public class User implements UserDetails {
         return email;  // Email is used as the username
     }
 
+    /**
+     * The value stored in the {@code username} column.
+     *
+     * <p>Needed because the {@link org.springframework.security.core.userdetails.UserDetails}
+     * override above returns the email, which stops Lombok generating an accessor for the field
+     * itself -- leaving it otherwise unreadable from outside this class.
+     */
+    public String getUsernameField() {
+        return this.username;
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         Set<GrantedAuthority> authorities = new HashSet<>();

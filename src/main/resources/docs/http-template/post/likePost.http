@@ -1,3 +1,11 @@
 ### Like Post
-POST http://localhost:8080/api/posts/1/like
+# Toggle endpoint: returns data=true when the post is now liked.
+# Send it again to unlike -- see unlikePost.http
+POST http://localhost:8080/1/likes/toggle
+Authorization: Bearer TOKEN_HERE
+
+###
+
+### Count Likes On A Post
+GET http://localhost:8080/1/likes/count
 Authorization: Bearer TOKEN_HERE

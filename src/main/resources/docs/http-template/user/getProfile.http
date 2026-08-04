@@ -1,3 +1,17 @@
 ### Get Current User Profile
-GET http://localhost:8080/api/users/me
+GET http://localhost:8080/users/me
+Authorization: Bearer TOKEN_HERE
+
+###
+
+### List Users (paginated)
+# Defaults: page=0, size=10, sort=id,asc
+GET http://localhost:8080/users/paginated?page=0&size=10
+Authorization: Bearer TOKEN_HERE
+
+###
+
+### List All Users
+# Note the trailing slash -- the mapping is /users/, not /users
+GET http://localhost:8080/users/
 Authorization: Bearer TOKEN_HERE

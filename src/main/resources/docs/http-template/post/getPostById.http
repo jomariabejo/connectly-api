@@ -1,3 +1,4 @@
-### Get Post By ID
-GET http://localhost:8080/api/posts/1
+### Get Post By Id
+# 403 when the post does not exist OR is not yours -- the two are indistinguishable by design
+GET http://localhost:8080/posts/1
 Authorization: Bearer TOKEN_HERE

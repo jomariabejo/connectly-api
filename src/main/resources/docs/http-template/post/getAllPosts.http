@@ -1,3 +1,11 @@
-### Get All Posts
-GET http://localhost:8080/api/posts
+### Get All Posts (paginated)
+# Defaults: page=0, size=10, sort=createdAt,desc
+GET http://localhost:8080/posts?page=0&size=10&sort=createdAt,desc
+Authorization: Bearer TOKEN_HERE
+
+###
+
+### Get All Posts (filtered)
+# Any of title, content, postType, privacy, createdById switches to the filtered query
+GET http://localhost:8080/posts?privacy=public&postType=text
 Authorization: Bearer TOKEN_HERE

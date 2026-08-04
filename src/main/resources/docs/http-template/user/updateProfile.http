@@ -1,9 +1,22 @@
-### Update User Profile
-PUT http://localhost:8080/api/users/me
+### Delete My Account (soft delete)
+# There is no profile-update endpoint: UserController exposes GET and DELETE on /users/me only.
+# This returns 202 Accepted -- the account is scheduled for permanent deletion 30 days out and a
+# reactivation token is emailed.
+DELETE http://localhost:8080/users/me
 Authorization: Bearer TOKEN_HERE
 Content-Type: application/json
 
 {
-  "firstName": "John",
-  "lastName": "Doe"
+  "autoReactivationEnabled": true
+}
+
+###
+
+### Reactivate My Account
+# Uses the token from the deletion email, valid while the 30-day grace period lasts
+POST http://localhost:8080/users/reactivate
+Content-Type: application/json
+
+{
+  "reactivationToken": "TOKEN_FROM_DELETION_EMAIL"
 }

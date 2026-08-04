@@ -1,9 +1,9 @@
 ### Create Comment
-POST http://localhost:8080/api/comments
+# The post comes from the path and the author from the token -- the body carries only the text
+POST http://localhost:8080/posts/1/comments
 Authorization: Bearer TOKEN_HERE
 Content-Type: application/json
 
 {
-  "text": "Nice post!",
-  "postId": 1
+  "text": "Nice post!"
 }

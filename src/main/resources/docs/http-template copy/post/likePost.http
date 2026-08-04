@@ -1,3 +1,0 @@
-### Like Post
-POST http://localhost:8080/api/posts/1/like
-Authorization: Bearer TOKEN_HERE

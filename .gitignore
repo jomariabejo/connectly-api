@@ -36,4 +36,13 @@ out/
 ### VS Code ###
 .vscode/
 
-.env.production
+### Environment ###
+# .env.example is the committed template; every real .env stays local.
+.env
+.env.*
+!.env.example
+
+### Docusaurus (documentation-central) ###
+documentation-central/node_modules/
+documentation-central/.docusaurus/
+documentation-central/.vercel/

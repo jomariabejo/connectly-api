@@ -1,3 +1,4 @@
 ### Delete Comment
-DELETE http://localhost:8080/api/comments/1
+# 204 on success, 401 for a non-author, 404 when the comment does not exist
+DELETE http://localhost:8080/posts/1/comments/1
 Authorization: Bearer TOKEN_HERE

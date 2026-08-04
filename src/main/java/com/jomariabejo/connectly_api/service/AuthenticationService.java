@@ -2,11 +2,16 @@ package com.jomariabejo.connectly_api.service;
 
 import com.jomariabejo.connectly_api.dto.RegisterUserDto;
 import com.jomariabejo.connectly_api.dto.LoginUserDto;
+import com.jomariabejo.connectly_api.exception.EmailAlreadyInUseException;
 import com.jomariabejo.connectly_api.exception.UnauthorizedAccessException;
 import com.jomariabejo.connectly_api.exception.InvalidPasswordResetTokenException;
 import com.jomariabejo.connectly_api.exception.PasswordResetTokenExpiredException;
+import com.jomariabejo.connectly_api.exception.UserAlreadyExistsException;
+import com.jomariabejo.connectly_api.exception.WeakPasswordException;
+import com.jomariabejo.connectly_api.model.Role;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.model.PasswordResetToken;
+import com.jomariabejo.connectly_api.repository.RoleRepository;
 import com.jomariabejo.connectly_api.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,7 +29,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.time.LocalDateTime;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -42,6 +49,10 @@ public class AuthenticationService {
     private final PasswordResetTokenService passwordResetTokenService;
     private final RateLimitingService rateLimitingService;
     private final AuditService auditService;
+    private final RoleRepository roleRepository;
+
+    /** Granted to every account created through {@link #signup(RegisterUserDto)}. */
+    private static final String DEFAULT_ROLE = "USER";
 
     @Value("${security.password.validation.min-length:8}")
     private int passwordMinLength;
@@ -57,7 +68,8 @@ public class AuthenticationService {
             VerificationTokenService verificationTokenService,
             PasswordResetTokenService passwordResetTokenService,
             RateLimitingService rateLimitingService,
-            AuditService auditService) {
+            AuditService auditService,
+            RoleRepository roleRepository) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -66,12 +78,22 @@ public class AuthenticationService {
         this.passwordResetTokenService = passwordResetTokenService;
         this.rateLimitingService = rateLimitingService;
         this.auditService = auditService;
+        this.roleRepository = roleRepository;
     }
 
     public User signup(RegisterUserDto registerUserDto) {
-        // Check if user already exists
+        if (userRepository.existsByUsername(registerUserDto.getUsername())) {
+            throw new UserAlreadyExistsException("Username already taken: " + registerUserDto.getUsername());
+        }
+
         if (userRepository.existsByEmail(registerUserDto.getEmail())) {
-            throw new RuntimeException("Email already in use");
+            throw new EmailAlreadyInUseException("Email already in use: " + registerUserDto.getEmail());
+        }
+
+        // The same strength rules the reset flow enforces -- registration used to accept anything
+        // non-blank, so an account could be created with a password its owner could never reset to.
+        if (!isPasswordStrong(registerUserDto.getPassword())) {
+            throw new WeakPasswordException(passwordStrengthMessage());
         }
 
         User user = new User();
@@ -79,6 +101,7 @@ public class AuthenticationService {
         user.setEmail(registerUserDto.getEmail());
         user.setPassword(passwordEncoder.encode(registerUserDto.getPassword()));
         user.setEnabled(false);
+        user.setRoles(defaultRoles());
 
         // Generate verification token
         String token = UUID.randomUUID().toString();
@@ -219,10 +242,7 @@ public class AuthenticationService {
 
         // Validate password strength
         if (!isPasswordStrong(newPassword)) {
-            throw new RuntimeException(
-                "Password must be at least " + passwordMinLength + 
-                " characters long and contain uppercase, number, and special character"
-            );
+            throw new WeakPasswordException(passwordStrengthMessage());
         }
 
         PasswordResetToken resetToken = null;
@@ -259,6 +279,32 @@ public class AuthenticationService {
             logger.error("Error resetting password for user: {}", user.getEmail(), e);
             throw new RuntimeException("Failed to reset password", e);
         }
+    }
+
+    /**
+     * The default role set for a newly registered account.
+     *
+     * <p>Registration used to leave {@code roles} empty, which gave every account zero authorities
+     * and made {@code /user/**}, {@code /admin/**} and every {@code @PreAuthorize} endpoint
+     * unreachable for everyone. The USER row is seeded by the Flyway baseline migration.
+     */
+    private Set<Role> defaultRoles() {
+        return roleRepository.findByName(DEFAULT_ROLE)
+                .map(role -> {
+                    Set<Role> roles = new HashSet<>();
+                    roles.add(role);
+                    return roles;
+                })
+                .orElseGet(() -> {
+                    logger.warn("Role '{}' is missing -- registering {} with no authorities. "
+                            + "Check that the Flyway seed migration ran.", DEFAULT_ROLE, "the new account");
+                    return new HashSet<>();
+                });
+    }
+
+    private String passwordStrengthMessage() {
+        return "Password must be at least " + passwordMinLength
+                + " characters long and contain uppercase, number, and special character";
     }
 
     /**

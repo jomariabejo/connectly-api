@@ -5,6 +5,7 @@ import com.jomariabejo.connectly_api.dto.post.PostResponseDto;
 import com.jomariabejo.connectly_api.dto.post.UpdatePostDto;
 import com.jomariabejo.connectly_api.dto.PaginationDto;
 import com.jomariabejo.connectly_api.dto.PostFilterDto;
+import com.jomariabejo.connectly_api.exception.PostNotFoundException;
 import com.jomariabejo.connectly_api.exception.UnauthorizedAccessException;
 import com.jomariabejo.connectly_api.mapper.PostMapper;
 import com.jomariabejo.connectly_api.model.Post;
@@ -80,8 +81,10 @@ public class PostService {
 
     public PostResponseDto updatePost(Long id, UpdatePostDto updatePostDto, User authenticatedUser) {
         // Find the existing post
+        // PostNotFoundException, not a bare RuntimeException: the latter fell through to the
+        // catch-all handler, so updating a post that does not exist reported 500 rather than 404.
         Post existingPost = postRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Post not found"));
+                .orElseThrow(() -> new PostNotFoundException(id));
 
         if (authenticatedUser.equals(existingPost.getCreatedBy())) {
 
@@ -108,8 +111,10 @@ public class PostService {
         if (postOptional.isPresent()) {
             Post post = postOptional.get();
 
-            // Check if the authenticated user is the owner of the post or is an admin
-            if (post.getCreatedBy().equals(authenticatedUser) || authenticatedUser.getRoles().contains("ADMIN")) {
+            // Check if the authenticated user is the owner of the post or is an admin.
+            // The admin arm used to read getRoles().contains("ADMIN") -- a Set<Role> compared
+            // against a String, which is never true, so admins were silently treated as strangers.
+            if (post.getCreatedBy().equals(authenticatedUser) || isAdmin(authenticatedUser)) {
                 // If the user is the owner or an admin, delete the post
                 postRepository.delete(post);
                 return true;
@@ -118,6 +123,11 @@ public class PostService {
 
         // If post is not found or user is not authorized, return false
         return false;
+    }
+
+    private boolean isAdmin(User user) {
+        return user.getRoles().stream()
+                .anyMatch(role -> "ADMIN".equals(role.getName()));
     }
 
     // Pagination methods

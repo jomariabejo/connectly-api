@@ -1,6 +1,7 @@
 package com.jomariabejo.connectly_api.scheduled;
 
 import com.jomariabejo.connectly_api.service.UserService;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -35,6 +36,7 @@ public class ScheduledDeletionTask {
      * - *: every day of week
      */
     @Scheduled(cron = "0 0 2 * * *")
+    @SchedulerLock(name = "permanentlyDeleteScheduledUsers", lockAtLeastFor = "PT5M", lockAtMostFor = "PT30M")
     public void permanentlyDeleteScheduledUsers() {
         logger.info("Starting scheduled deletion task...");
         

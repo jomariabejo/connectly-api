@@ -1,3 +1,0 @@
-### Delete Comment
-DELETE http://localhost:8080/api/comments/1
-Authorization: Bearer TOKEN_HERE

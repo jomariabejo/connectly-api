@@ -21,6 +21,11 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     
     void deleteById(Long id);
 
+    // Used when permanently deleting an account -- see UserService.permanentlyDeleteUser.
+    void deleteAllByUser(com.jomariabejo.connectly_api.model.User user);
+
+    void deleteAllByPost(com.jomariabejo.connectly_api.model.Post post);
+
     @Query("SELECT c FROM Comment c WHERE c.post.id = :postId AND c.user.deletedAt IS NULL")
     List<Comment> findByPostId(@Param("postId") Long postId);
 

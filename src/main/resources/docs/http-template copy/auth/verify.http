@@ -1,2 +1,0 @@
-### Verify Email Token
-GET http://localhost:8080/auth/verify?token=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QGdtYWlsLmNvbSIsImlhdCI6MTc3ODM1MDUzMSwiZXhwIjoxNzc4MzU0MTMxfQ.cdnCPk6m9flMkM54Z2gEIJA8zcvxwiG7zgS9l6QmEpA

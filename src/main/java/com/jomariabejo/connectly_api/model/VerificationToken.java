@@ -14,7 +14,10 @@ public class VerificationToken {
     private static final int EXPIRATION = 60 * 24;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    // IDENTITY, matching every other entity. AUTO makes Hibernate 6 allocate through a
+    // verification_token_seq sequence instead of the BIGSERIAL identity column, which
+    // schema validation flags as missing.
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String token;

@@ -28,4 +28,7 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
 
     @Query("SELECT p FROM PasswordResetToken p WHERE p.expiryDate < CURRENT_TIMESTAMP AND p.isUsed = false")
     List<PasswordResetToken> findExpiredTokens();
+
+    // Used when permanently deleting an account -- see UserService.permanentlyDeleteUser.
+    void deleteAllByUser(User user);
 }

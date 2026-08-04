@@ -60,9 +60,21 @@ public class CommentService {
         return commentMapper.commentToCreateCommentDto(savedComment);
     }
 
+    /**
+     * Comments are readable by any authenticated user — only editing and deleting are author-only.
+     *
+     * <p>The {@code postId} used to be accepted and ignored, so {@code /posts/999/comments/1}
+     * happily returned comment 1 even though it belongs to another post. It is now checked, and a
+     * mismatch is a 404 like any other missing comment.
+     */
     public CommentResponseDto getComment(Long postId, Long commentId, User authenticatedUser) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new CommentNotFoundException("Comment not found with id: " + commentId));
+
+        if (comment.getPost() == null || !comment.getPost().getId().equals(postId)) {
+            throw new CommentNotFoundException(
+                    "Comment " + commentId + " does not belong to post " + postId);
+        }
 
         return commentMapper.commentToCommentResponseDto(comment);
     }
