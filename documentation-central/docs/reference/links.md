@@ -34,7 +34,6 @@ The references the implementation was built from, plus the documentation for the
 |---|---|
 | [Mailpit](https://mailpit.axllent.org/) | Local SMTP catcher — reads verification and reset mail |
 | [REST Client for VS Code](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) | Runs the `.http` files in `src/main/resources/docs/http-template/` |
-| [Bump.sh](https://bump.sh/) | Publishes `doc/api-documentation.yml` from CI |
 | [Docusaurus](https://docusaurus.io/) | This site |
 
 ## Topics worth reading before changing things
@@ -42,5 +41,5 @@ The references the implementation was built from, plus the documentation for the
 - [Spring Boot's `PathPatternParser`](https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-config/path-matching.html) — why duplicate path variables abort startup ([known issues](./known-issues.md))
 - [`@MockitoBean` vs `@MockBean`](https://docs.spring.io/spring-framework/reference/testing/annotations/integration-spring/annotation-mockitobean.html) — Boot 3.4 deprecated the latter
 - [Externalized configuration](https://docs.spring.io/spring-boot/reference/features/external-config.html) — how `spring.config.import` reads `.env` ([Configuration](../getting-started/configuration.md))
-- [Flyway](https://documentation.red-gate.com/fd) or [Liquibase](https://docs.liquibase.com/) — for replacing the unused `schema.sql`
+- [Flyway](https://documentation.red-gate.com/fd) — how the schema is versioned ([data model](../data-model/schema.md))
 - [ShedLock](https://github.com/lukas-krecan/ShedLock) — before running [scheduled tasks](../architecture/scheduled-tasks.md) on more than one instance

@@ -21,11 +21,11 @@ Not "fixed" because removing the default would break zero-config startup, which 
 
 **What to do:** set `JWT_SECRET` from `openssl rand -hex 32` for anything that is not your laptop. See [Configuration](../getting-started/configuration.md).
 
-### The Bump.sh token needs rotating
+### A Bump.sh token is still in the git history
 
-The workflow now reads `${{ secrets.BUMP_TOKEN }}` instead of a literal value, but **the old token is still public in the git history**. Changing the file does not un-publish it.
+The Bump.sh workflow has been removed, but the API token it once carried in plaintext remains in earlier commits. Deleting the file does not un-publish it.
 
-**What to do:** rotate it in the Bump.sh dashboard, then add the new value as a `BUMP_TOKEN` repository secret.
+**What to do:** revoke that token in the Bump.sh dashboard. Rewriting history is not worth it for a credential that can simply be revoked.
 
 ### `GET /posts/{id}` returns 403 for a post that does not exist
 

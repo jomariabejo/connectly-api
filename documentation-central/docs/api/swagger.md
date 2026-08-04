@@ -41,14 +41,14 @@ The same `/v3/api-docs` URL drives more than Swagger UI. **[Postman](./postman.m
 
 ## Regenerating the checked-in spec
 
-`doc/api-documentation.yml` is consumed by the Bump.sh workflow in `.github/workflows/bump.yml`, which runs on every push to `main`. Refresh it whenever you change a route, DTO or annotation:
+[`doc/api-documentation.yml`](https://github.com/jomariabejo/connectly-api/blob/main/doc/api-documentation.yml) is a committed snapshot of the live spec, useful when the API is not running — [Postman](./postman.md) falls back to it for offline imports. Refresh it whenever you change a route, DTO or annotation:
 
 ```bash
 ./gradlew bootRun &
 curl -s localhost:8080/v3/api-docs.yaml -o doc/api-documentation.yml
 ```
 
-Then commit the result. If the file drifts from the code, the published Bump.sh documentation drifts with it.
+Then commit the result. Nothing enforces this, so the file goes stale silently — the live `/v3/api-docs` is always the authority.
 
 ## Configuration
 

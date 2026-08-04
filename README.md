@@ -182,7 +182,7 @@ connectly-api/
 │   └── test/java/com/jomariabejo/connectly_api/
 │       ├── service/                    7 Mockito unit test classes
 │       └── controller/                 6 @WebMvcTest slice classes
-└── .github/workflows/bump.yml          publishes the OpenAPI spec
+└── gradlew
 ```
 
 ---
