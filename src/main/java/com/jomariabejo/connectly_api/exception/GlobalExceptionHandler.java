@@ -5,8 +5,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -51,6 +54,33 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccountReactivationFailedException.class)
     public ResponseEntity<ErrorResponse> handleAccountReactivationFailedException(AccountReactivationFailedException ex) {
         return buildErrorResponse(HttpStatus.BAD_REQUEST, "Account reactivation failed", ex);
+    }
+
+    /**
+     * Bean-validation failures on {@code @Valid @RequestBody} arguments.
+     *
+     * <p>This handler has to exist explicitly. {@code ExceptionHandlerExceptionResolver} runs before
+     * Spring's {@code DefaultHandlerExceptionResolver}, so without it the catch-all
+     * {@link #handleGenericException(Exception)} below claims {@code MethodArgumentNotValidException}
+     * and every malformed request body comes back as 500 instead of 400.
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleValidationException(MethodArgumentNotValidException ex) {
+        String details = ex.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .sorted()
+                .collect(Collectors.joining(", "));
+
+        logger.warn("Validation failed: {}", details);
+
+        ErrorResponse errorResponse = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Validation failed",
+                details,
+                System.currentTimeMillis()
+        );
+
+        return ResponseEntity.badRequest().body(errorResponse);
     }
 
     @ExceptionHandler(Exception.class)

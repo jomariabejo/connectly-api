@@ -8,6 +8,11 @@ import com.jomariabejo.connectly_api.model.VerificationToken;
 import com.jomariabejo.connectly_api.repository.VerificationTokenRepository;
 import com.jomariabejo.connectly_api.service.AuthenticationService;
 import com.jomariabejo.connectly_api.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -26,6 +31,8 @@ import java.util.UUID;
 
 @RequestMapping("/users")
 @RestController
+@Tag(name = "Users", description = "Profile access, account deletion with a 30-day grace period, reactivation, and admin account management.")
+@SecurityRequirement(name = "bearerAuth")
 public class UserController {
     private final UserService userService;
     private final AuthenticationService authenticationService;
@@ -39,12 +46,22 @@ public class UserController {
         this.verificationTokenRepository = verificationTokenRepository;
     }
 
+    @Operation(summary = "Get the caller's profile")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Profile returned"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token")
+    })
     @GetMapping("/me")
     public ResponseEntity<User> authenticatedUser() {
         User currentUser = authenticationService.getAuthenticatedUser();
         return ResponseEntity.ok(currentUser);
     }
 
+    @Operation(
+            summary = "List all users",
+            description = "Unpaginated. Note the trailing slash: the path is `/users/`, not `/users`. "
+                    + "Prefer /users/paginated.")
+    @ApiResponse(responseCode = "200", description = "Users returned")
     @GetMapping("/")
     public ResponseEntity<List<User>> allUsers() {
         List<User> users = userService.allUsers();
@@ -53,6 +70,11 @@ public class UserController {
     }
 
     // Pagination endpoints
+    @Operation(
+            summary = "List users (paginated, filterable)",
+            description = "Defaults to `?page=0&size=10&sort=id,asc`. Passing any of `username`, `email`, `firstName` "
+                    + "or `lastName` switches to the filtered query.")
+    @ApiResponse(responseCode = "200", description = "A PaginationDto page of users")
     @GetMapping("/paginated")
     public ResponseEntity<PaginationDto<User>> getAllUsersPaginated(
             @PageableDefault(size = 10, page = 0, sort = "id", direction = Sort.Direction.ASC) Pageable pageable,
@@ -82,6 +104,15 @@ public class UserController {
      * Delete user account (soft-delete with 30-day grace period).
      * User data is scheduled for permanent deletion after 30 days.
      */
+    @Operation(
+            summary = "Delete the caller's account (soft delete)",
+            description = "Marks the account deleted and schedules permanent removal 30 days out, then mails a "
+                    + "reactivation token. Returns 202 Accepted, not 204 -- deletion is scheduled, not immediate. "
+                    + "The body carries both timestamps and the grace period in days.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "202", description = "Deletion scheduled; reactivation token issued"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token")
+    })
     @DeleteMapping("/me")
     public ResponseEntity<DeleteAccountResponseDto> deleteAccount(
             @RequestBody(required = false) DeleteAccountRequestDto requestDto) {
@@ -128,6 +159,14 @@ public class UserController {
      * Reactivate a deleted user account within the grace period.
      * Requires verification token sent to user's email.
      */
+    @Operation(
+            summary = "Reactivate a deleted account",
+            description = "Restores an account inside its 30-day grace period using the reactivation token from the "
+                    + "deletion email.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Account reactivated"),
+            @ApiResponse(responseCode = "400", description = "Invalid or expired reactivation token, or the grace period has lapsed")
+    })
     @PostMapping("/reactivate")
     public ResponseEntity<String> reactivateAccount(
             @RequestBody ReactivateAccountRequestDto requestDto) {
@@ -165,6 +204,15 @@ public class UserController {
      * Admin endpoint: Permanently delete a user account (force delete, no grace period).
      * Can only be called by users with ADMIN role.
      */
+    @Operation(
+            summary = "[ADMIN] Delete a user account",
+            description = "Soft-deletes by default. Send `{\"forceDelete\": true}` to bypass the grace period and "
+                    + "remove the account immediately. Full path: `/users/admin/users/{id}`.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Account deleted or marked for deletion"),
+            @ApiResponse(responseCode = "403", description = "Caller does not hold ROLE_ADMIN"),
+            @ApiResponse(responseCode = "404", description = "No user exists with this id")
+    })
     @DeleteMapping("/admin/users/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> adminDeleteUser(
@@ -196,6 +244,16 @@ public class UserController {
      * Admin endpoint: Extend the deletion grace period for a user.
      * Can only be called by users with ADMIN role.
      */
+    @Operation(
+            summary = "[ADMIN] Extend a deletion grace period",
+            description = "Pushes the scheduled deletion out by `extensionDays`. Full path: "
+                    + "`/users/admin/users/{id}/extend-deletion`.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Grace period extended"),
+            @ApiResponse(responseCode = "400", description = "extensionDays missing or <= 0, or the user is not scheduled for deletion"),
+            @ApiResponse(responseCode = "403", description = "Caller does not hold ROLE_ADMIN"),
+            @ApiResponse(responseCode = "404", description = "No user exists with this id")
+    })
     @PutMapping("/admin/users/{id}/extend-deletion")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> extendDeletionPeriod(
@@ -227,6 +285,13 @@ public class UserController {
      * Admin endpoint: List all users scheduled for permanent deletion.
      * Can only be called by users with ADMIN role.
      */
+    @Operation(
+            summary = "[ADMIN] List accounts pending permanent deletion",
+            description = "Full path: `/users/admin/users/scheduled-deletion`.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Accounts awaiting permanent deletion"),
+            @ApiResponse(responseCode = "403", description = "Caller does not hold ROLE_ADMIN")
+    })
     @GetMapping("/admin/users/scheduled-deletion")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<User>> getUsersScheduledForDeletion() {

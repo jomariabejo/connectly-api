@@ -1,3 +1,16 @@
-### Get Comments By Post
-GET http://localhost:8080/api/comments/post/1
+### Get Comments By Post (paginated)
+# Defaults: page=0, size=10, sort=createdAt,desc
+GET http://localhost:8080/posts/1/comments?page=0&size=10
+Authorization: Bearer TOKEN_HERE
+
+###
+
+### Get Comments By Post (filtered)
+GET http://localhost:8080/posts/1/comments?content=Nice
+Authorization: Bearer TOKEN_HERE
+
+###
+
+### Get A Single Comment
+GET http://localhost:8080/posts/1/comments/1
 Authorization: Bearer TOKEN_HERE

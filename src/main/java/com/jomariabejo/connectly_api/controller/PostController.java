@@ -8,6 +8,11 @@ import com.jomariabejo.connectly_api.dto.PostFilterDto;
 import com.jomariabejo.connectly_api.service.AuthenticationService;
 import com.jomariabejo.connectly_api.service.PostService;
 import com.jomariabejo.connectly_api.model.User;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -21,6 +26,8 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/posts")
+@Tag(name = "Posts", description = "Create, read, update and delete posts. Reads are owner-scoped: a post is only visible to its author.")
+@SecurityRequirement(name = "bearerAuth")
 public class PostController {
 
     private final PostService postService;
@@ -31,6 +38,12 @@ public class PostController {
         this.authenticationService = authenticationService;
     }
 
+    @Operation(summary = "Create a post", description = "The authenticated user becomes the post's author.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Post created"),
+            @ApiResponse(responseCode = "400", description = "Validation failed on the request body"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token")
+    })
     @PostMapping
     public ResponseEntity<CreatePostDto> createPost(
             @RequestBody @Valid CreatePostDto createPostDto) {
@@ -42,6 +55,16 @@ public class PostController {
         return ResponseEntity.status(201).body(createPost);
     }
 
+    @Operation(
+            summary = "Get a single post",
+            description = "Returns 403 both when the post does not exist and when the caller is not its author -- "
+                    + "PostService.getPost throws in both cases and the controller maps either to FORBIDDEN, so a "
+                    + "missing post is deliberately indistinguishable from someone else's post.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Post returned"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token"),
+            @ApiResponse(responseCode = "403", description = "Post not found, or not owned by the caller")
+    })
     @GetMapping("/{id}")
     public ResponseEntity<PostResponseDto> getPost(@PathVariable Long id) {
         User currentUser = authenticationService.getAuthenticatedUser();
@@ -55,6 +78,12 @@ public class PostController {
         return ResponseEntity.ok(postResponseDto);
     }
 
+    @Operation(summary = "Update a post", description = "Only the author may update a post.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Post updated"),
+            @ApiResponse(responseCode = "401", description = "Missing bearer token, or the caller is not the author"),
+            @ApiResponse(responseCode = "500", description = "No post exists with this id")
+    })
     @PutMapping("/{id}")
     public ResponseEntity<PostResponseDto> updatePost(@PathVariable Long id,
                                                       @RequestBody UpdatePostDto updatePostDto) {
@@ -65,6 +94,14 @@ public class PostController {
         return ResponseEntity.ok(updatedPost);
     }
 
+    @Operation(
+            summary = "Delete a post",
+            description = "Permitted for the author. As with GET, a missing post and an unowned post both yield 403.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Post deleted"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token"),
+            @ApiResponse(responseCode = "403", description = "Post not found, or not owned by the caller")
+    })
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletePost(@PathVariable Long id) {
         User currentUser = authenticationService.getAuthenticatedUser();
@@ -77,6 +114,10 @@ public class PostController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
     }
 
+    @Operation(
+            summary = "List the caller's posts",
+            description = "Unpaginated. Prefer /posts/my-posts/paginated for anything but small accounts.")
+    @ApiResponse(responseCode = "200", description = "Posts returned")
     @GetMapping("/my-posts")
     public ResponseEntity<List<PostResponseDto>> getPostsByAuthenticatedUser() {
         User currentUser = authenticationService.getAuthenticatedUser();
@@ -86,6 +127,11 @@ public class PostController {
     }
 
     // Pagination endpoints
+    @Operation(
+            summary = "List posts (paginated, filterable)",
+            description = "Standard Spring Data paging: `?page=0&size=10&sort=createdAt,desc` (that is also the default). "
+                    + "Supplying any of the filter parameters switches to the filtered query.")
+    @ApiResponse(responseCode = "200", description = "A PaginationDto page of posts")
     @GetMapping
     public ResponseEntity<PaginationDto<PostResponseDto>> getAllPostsPaginated(
             @PageableDefault(size = 10, page = 0, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
@@ -107,6 +153,8 @@ public class PostController {
         return ResponseEntity.ok(result);
     }
 
+    @Operation(summary = "List one user's posts (paginated, filterable)")
+    @ApiResponse(responseCode = "200", description = "A PaginationDto page of that user's posts")
     @GetMapping("/user/{userId}/paginated")
     public ResponseEntity<PaginationDto<PostResponseDto>> getUserPostsPaginated(
             @PathVariable Long userId,
@@ -128,6 +176,8 @@ public class PostController {
         return ResponseEntity.ok(result);
     }
 
+    @Operation(summary = "List the caller's posts (paginated, filterable)")
+    @ApiResponse(responseCode = "200", description = "A PaginationDto page of the caller's posts")
     @GetMapping("/my-posts/paginated")
     public ResponseEntity<PaginationDto<PostResponseDto>> getAuthenticatedUserPostsPaginated(
             @PageableDefault(size = 10, page = 0, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,

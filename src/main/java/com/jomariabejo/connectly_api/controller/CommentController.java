@@ -7,6 +7,11 @@ import com.jomariabejo.connectly_api.dto.CommentFilterDto;
 import com.jomariabejo.connectly_api.dto.PaginationDto;
 import com.jomariabejo.connectly_api.service.AuthenticationService;
 import com.jomariabejo.connectly_api.service.CommentService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +23,8 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/posts/{postId}/comments")
+@Tag(name = "Comments", description = "Comments nested under a post. Editing and deleting are restricted to the comment's author.")
+@SecurityRequirement(name = "bearerAuth")
 public class CommentController {
 
     private static final Logger log = LoggerFactory.getLogger(CommentController.class);
@@ -33,6 +40,12 @@ public class CommentController {
         this.authenticationService = authenticationService;
     }
 
+    @Operation(summary = "Add a comment to a post")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Comment created"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token"),
+            @ApiResponse(responseCode = "500", description = "No post exists with this id")
+    })
     @PostMapping
     public ResponseEntity<CreateCommentDto> addComment(
             @PathVariable Long postId,
@@ -47,6 +60,12 @@ public class CommentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(savedComment);
     }
 
+    @Operation(summary = "Get a single comment")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Comment returned"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token"),
+            @ApiResponse(responseCode = "404", description = "No comment exists with this id")
+    })
     @GetMapping("/{commentId}")
     public ResponseEntity<CommentResponseDto> getComment(
             @PathVariable Long postId,
@@ -61,6 +80,12 @@ public class CommentController {
         return ResponseEntity.ok(comment);
     }
 
+    @Operation(summary = "Update a comment", description = "Only the comment's author may edit it.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Comment updated"),
+            @ApiResponse(responseCode = "401", description = "Missing bearer token, or the caller is not the comment's author"),
+            @ApiResponse(responseCode = "404", description = "No comment exists with this id")
+    })
     @PutMapping("/{commentId}")
     public ResponseEntity<CommentResponseDto> updateComment(
             @PathVariable Long postId,
@@ -76,6 +101,12 @@ public class CommentController {
         return ResponseEntity.ok(updatedComment);
     }
 
+    @Operation(summary = "Delete a comment", description = "Only the comment's author may delete it.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Comment deleted"),
+            @ApiResponse(responseCode = "401", description = "Missing bearer token, or the caller is not the comment's author"),
+            @ApiResponse(responseCode = "404", description = "No comment exists with this id")
+    })
     @DeleteMapping("/{commentId}")
     public ResponseEntity<Void> deleteComment(
             @PathVariable Long postId,
@@ -91,6 +122,11 @@ public class CommentController {
     }
 
     // Pagination endpoints
+    @Operation(
+            summary = "List a post's comments (paginated, filterable)",
+            description = "Defaults to `?page=0&size=10&sort=createdAt,desc`. Passing `content` or `createdById` "
+                    + "switches to the filtered query.")
+    @ApiResponse(responseCode = "200", description = "A PaginationDto page of comments")
     @GetMapping
     public ResponseEntity<PaginationDto<CommentResponseDto>> getPostCommentsPaginated(
             @PathVariable Long postId,

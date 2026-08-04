@@ -23,11 +23,21 @@ A robust, scalable backend for a modern social platform — enabling users to po
 
 ---
 
+## 📖 Documentation
+
+| Where | What |
+|---|---|
+| **[Documentation Central](documentation-central/)** | The full docs site — setup, architecture, endpoint reference, data model, testing. Run it with `cd documentation-central && npm install && npm start` |
+| **Swagger UI** — http://localhost:8080/swagger-ui.html | Interactive API console. Click **Authorize**, paste a token from `POST /auth/login`, and call any endpoint |
+| **OpenAPI spec** — http://localhost:8080/v3/api-docs | Machine-readable spec (add `.yaml` for YAML). Checked in at [`doc/api-documentation.yml`](doc/api-documentation.yml) |
+
+---
+
 ## 📚 API Testing
 
-All API endpoints are available as `.http` files in the `http/` directory for easy testing with VS Code REST Client extension.
+Every endpoint has a `.http` file under [`src/main/resources/docs/http-template/`](src/main/resources/docs/http-template/) for the VS Code REST Client extension.
 
-👉 Install [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension and click "Send Request" on any file.
+👉 Install [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client), open any file, replace `TOKEN_HERE` with a token from `POST /auth/login`, and click "Send Request".
 
 ---
 
@@ -58,26 +68,29 @@ git clone https://github.com/jomariabejo/connectly-api.git
 cd connectly-api
 ```
 
-#### 2. Setup PostgreSQL Database
+#### 2. Configure (optional)
 ```bash
-# Create database
+cp .env.example .env
+```
+
+Every setting has a working local default, so **you can skip this entirely** and `./gradlew bootRun` still works. Copy the file only when you need to change something — a different database password, an SMTP port, your own JWT secret. `.env.example` documents every variable; `.env` is gitignored.
+
+Real environment variables take precedence over `.env`, so CI and production can set the same names without shipping a file.
+
+#### 3. Setup PostgreSQL Database
+```bash
 createdb connectly_db
-
-# If using different credentials, update src/main/resources/application.properties
 ```
 
-#### 3. Setup Local Email with MailHog
-For development, we use **MailHog** to capture emails locally:
+Defaults to `postgres`/`admin` on `localhost:5432`. Set `DB_URL`, `DB_USERNAME` and `DB_PASSWORD` in `.env` to change that.
 
-**Option A: Using Docker** (easiest)
-```bash
-docker run -d --name mailhog -p 1025:1025 -p 8025:8025 mailpit/mailpit
-```
+> ⚠️ `JPA_DDL_AUTO` defaults to `create-drop`, which **rebuilds the schema on every start and drops it on shutdown**. Fine locally; set it to `validate` or `none` anywhere you care about the data.
 
-**Option B: Direct Install** (requires Go)
+#### 4. Setup Local Email with Mailpit
+Mailpit captures outgoing mail locally so you can read verification and password-reset messages:
+
 ```bash
-go install github.com/mailhog/MailHog@latest
-MailHog
+docker run -d --name mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit
 ```
 
 Once running:
@@ -89,46 +102,69 @@ Once running:
 ./gradlew bootRun
 ```
 
-The API will be running at `http://localhost:8080`
+The API will be running at `http://localhost:8080`, with Swagger UI at `http://localhost:8080/swagger-ui.html`.
 
 ---
 
 ## 📡 API Endpoints
 
-### Authentication
-- `POST /auth/registration` - Register new user
-- `POST /auth/login` - Login user
-- `GET /auth/verify?token=TOKEN` - Verify email
+There is **no `/api` prefix**. Send `Authorization: Bearer <token>` on everything outside `/auth/**`.
+
+### Authentication (public)
+- `POST /auth/registration` — Register a new account
+- `POST /auth/login` — Log in, returns a JWT
+- `GET /auth/verify?token=TOKEN` — Verify an email address
+- `GET /auth/registrationConfirm?token=TOKEN` — Confirm from the emailed link
+- `POST /auth/forgot-password/email` — Request a reset link
+- `POST /auth/forgot-password/otp` — Request a reset one-time code
+- `POST /auth/reset-password` — Complete a reset with a token or OTP
 
 ### Users
-- `GET /api/users/me` - Get current user profile
-- `PUT /api/users/me` - Update profile
+- `GET /users/me` — Current user's profile
+- `GET /users/` — All users (note the trailing slash)
+- `GET /users/paginated` — Users, paginated and filterable
+- `DELETE /users/me` — Soft-delete the account → **202**, 30-day grace period
+- `POST /users/reactivate` — Restore an account inside the grace period
+
+### Users — admin only (`ROLE_ADMIN`)
+- `DELETE /users/admin/users/{id}` — Delete an account (`{"forceDelete": true}` to skip the grace period)
+- `PUT /users/admin/users/{id}/extend-deletion` — Extend a grace period
+- `GET /users/admin/users/scheduled-deletion` — List accounts pending permanent deletion
 
 ### Posts
-- `POST /api/posts` - Create post
-- `GET /api/posts` - Get all posts
-- `GET /api/posts/{id}` - Get single post
-- `PUT /api/posts/{id}` - Update post
-- `DELETE /api/posts/{id}` - Delete post
-- `POST /api/posts/{id}/like` - Like post
-- `DELETE /api/posts/{id}/like` - Unlike post
+- `POST /posts` — Create a post → **201**
+- `GET /posts` — All posts, paginated and filterable
+- `GET /posts/{id}` — Single post (**403** if missing *or* not yours)
+- `PUT /posts/{id}` — Update a post
+- `DELETE /posts/{id}` — Delete a post → **204**
+- `GET /posts/my-posts` — Caller's posts
+- `GET /posts/my-posts/paginated` — Caller's posts, paginated
+- `GET /posts/user/{userId}/paginated` — One user's posts, paginated
 
 ### Comments
-- `POST /api/comments` - Create comment
-- `GET /api/comments/post/{postId}` - Get post comments
-- `PUT /api/comments/{id}` - Update comment
-- `DELETE /api/comments/{id}` - Delete comment
+- `POST /posts/{postId}/comments` — Add a comment → **201**
+- `GET /posts/{postId}/comments` — A post's comments, paginated and filterable
+- `GET /posts/{postId}/comments/{commentId}` — Single comment
+- `PUT /posts/{postId}/comments/{commentId}` — Update a comment
+- `DELETE /posts/{postId}/comments/{commentId}` — Delete a comment → **204**
+
+### Likes
+- `POST /{postId}/likes/toggle` — Like or unlike; `data` holds the resulting state
+- `GET /{postId}/likes/count` — Like count (public posts only)
+- `GET /{postId}/likes/my-likes` — Caller's likes across all posts
 
 ---
 
-## 🧪 Testing API Requests
+## 🧪 Testing
 
-1. **Install REST Client** extension in VS Code
-2. Open any file in `http/` folder
-3. Click "Send Request" button above the request
-4. View response in the sidebar
+```bash
+./gradlew unitTest   # Mockito unit tests + controller slices — no database needed
+./gradlew test       # adds ConnectlyApiApplicationTests, which needs PostgreSQL running
+```
 
-Example: `http/auth/register.http`
+To exercise the API by hand: install the **REST Client** extension in VS Code, open a file under `src/main/resources/docs/http-template/`, swap `TOKEN_HERE` for a real token, and click "Send Request".
+
+Example: `src/main/resources/docs/http-template/auth/register.http`
 
 ---
 
