@@ -17,6 +17,7 @@ This site is the reference for that API — how to run it, how it is put togethe
 | Get it running locally | [Installation](./getting-started/installation.md) |
 | Change a port, password or secret | [Configuration](./getting-started/configuration.md) |
 | Call the API interactively | [Swagger UI](./api/swagger.md) |
+| Drive the API from Postman | [Postman](./api/postman.md) |
 | Look up an endpoint | [Authentication](./api/authentication.md), [Users](./api/users.md), [Posts](./api/posts.md), [Comments](./api/comments.md), [Likes](./api/likes.md) |
 | Understand the layering | [Architecture overview](./architecture/overview.md) |
 | Know what is rough | [Known issues](./reference/known-issues.md) |

@@ -24,6 +24,7 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: [
         'api/swagger',
+        'api/postman',
         'api/authentication',
         'api/users',
         'api/posts',

@@ -25,11 +25,15 @@ Everything outside `/auth/**` needs a JWT. Swagger UI holds one for you:
 3. **Paste the raw token** and confirm. Do *not* type `Bearer ` — the scheme is declared as `bearerFormat: JWT`, so the prefix is added for you.
 4. Every secured operation now sends the header automatically. The padlocks close.
 
-The token expires after `JWT_EXPIRATION_MS` (one hour by default). When calls start coming back `403`, log in again and re-authorize.
+The token expires after `JWT_EXPIRATION_MS` (one hour by default). When calls start coming back `401`, log in again and re-authorize.
 
 :::tip Account must be verified first
 `POST /auth/login` rejects an account that has not clicked its verification link. See [Authentication](./authentication.md).
 :::
+
+## Using the spec elsewhere
+
+The same `/v3/api-docs` URL drives more than Swagger UI. **[Postman](./postman.md)** imports it by link and builds a collection that stays in sync with the code — see that page for the import steps and a login script that captures the JWT automatically.
 
 ## What is in the spec
 
