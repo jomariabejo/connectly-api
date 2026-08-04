@@ -72,20 +72,21 @@ DB_PASSWORD=hunter2
 | `DB_URL` | `jdbc:postgresql://localhost:5432/connectly_db` | JDBC URL |
 | `DB_USERNAME` | `postgres` | |
 | `DB_PASSWORD` | `admin` | |
-| `JPA_DDL_AUTO` | `create-drop` | See the warning below |
+| `JPA_DDL_AUTO` | `validate` | See the note below |
+| `FLYWAY_ENABLED` | `true` | Run migrations on start |
 | `JPA_SHOW_SQL` | `true` | Log generated SQL |
 
-:::warning `create-drop` destroys data
-The default rebuilds the schema on start and **drops every table on shutdown**. Values you can set instead:
+:::note The schema is owned by Flyway
+Migrations in `src/main/resources/db/migration` build and version the schema; Hibernate only checks it. On first start Flyway applies `V1__baseline_schema.sql` and creates every table, so a fresh `createdb connectly_db` needs nothing else.
 
-| Value | Behaviour |
+| `JPA_DDL_AUTO` | Behaviour |
 |---|---|
-| `create-drop` | Rebuild on start, drop on shutdown *(default — local only)* |
-| `update` | Apply additive changes, keep data |
-| `validate` | Verify the schema matches the entities, change nothing |
-| `none` | Leave the schema entirely alone |
+| `validate` | Verify the schema matches the entities, change nothing *(default)* |
+| `none` | Skip the check entirely |
+| `update` | Let Hibernate apply additive changes — diverges from the migrations |
+| `create-drop` | Rebuild on start, **drop on shutdown** — destroys data |
 
-Use `validate` or `none` anywhere the data matters. [`schema.sql`](../data-model/schema.md) is the reference DDL to create the tables from.
+The default used to be `create-drop`, which rebuilt the schema on every start. `validate` earns its keep: it refuses to boot when an entity and its table disagree, rather than silently rewriting the table.
 :::
 
 ### JWT
@@ -96,7 +97,7 @@ Use `validate` or `none` anywhere the data matters. [`schema.sql`](../data-model
 | `JWT_EXPIRATION_MS` | `3600000` (1 hour) | Token lifetime |
 
 :::danger Rotate the signing key
-The default `JWT_SECRET` is committed to the repository, so it is public. Anyone can forge a valid token against a deployment still using it. Generate your own:
+The default `JWT_SECRET` is committed to the repository, so it is public. Anyone can forge a valid token against a deployment still using it. It exists so a fresh clone runs with no configuration; it is not safe anywhere else. Generate your own:
 
 ```bash
 openssl rand -hex 32
@@ -123,20 +124,19 @@ The value is run through a Base64 decoder, so it must be valid Base64 that decod
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated |
 | `CORS_ALLOWED_METHODS` | `GET,POST,PUT,DELETE` | |
 
-:::warning CORS is currently inert — changing these has no effect
-Two CORS configurations exist and **neither is applied**: the properties above, and a `CorsConfigurationSource` bean in `SecurityConfiguration` that hardcodes `http://localhost:8080` with only `GET,POST`.
-
-The security filter chain never calls `.cors(…)`, so the bean is never consulted, and preflight `OPTIONS` requests fall through to `anyRequest().authenticated()` and are rejected:
+Both feed the single `CorsConfigurationSource` bean in `SecurityConfiguration`:
 
 ```bash
 $ curl -i -X OPTIONS http://localhost:8080/posts \
     -H 'Origin: http://localhost:3000' \
     -H 'Access-Control-Request-Method: GET'
-HTTP/1.1 403
-# no Access-Control-Allow-Origin header
+HTTP/1.1 200
+Access-Control-Allow-Origin: http://localhost:3000
+Access-Control-Allow-Methods: GET,POST,PUT,DELETE
 ```
 
-A browser-based frontend on another origin cannot call this API today. See [known issues](../reference/known-issues.md) for the fix.
+:::info Previously inert
+Two configurations existed and neither applied, because the filter chain never called `.cors(…)`. No browser frontend on another origin could reach the API. See [known issues](../reference/known-issues.md).
 :::
 
 ### Password reset
@@ -151,8 +151,8 @@ A browser-based frontend on another origin cannot call this API today. See [know
 | `PASSWORD_MIN_LENGTH` | `8` | Minimum for a *reset* password |
 | `PASSWORD_RESET_REDIRECT_URL` | `http://localhost:8080/reset-password` | Where the emailed link points — set to your frontend |
 
-:::note Strength rules apply on reset, not registration
-`POST /auth/reset-password` requires length plus an uppercase letter, a digit and a special character. `POST /auth/registration` enforces only `@NotBlank`, so `a` is an acceptable password at sign-up. See [known issues](../reference/known-issues.md).
+:::note One strength rule, both flows
+`PASSWORD_MIN_LENGTH` plus an uppercase letter, a digit and a special character — enforced by **both** `POST /auth/registration` and `POST /auth/reset-password`. Registration used to enforce only `@NotBlank`.
 :::
 
 ### Docs and logging

@@ -159,7 +159,7 @@ class PostControllerTest {
     }
 
     @Test
-    @DisplayName("PUT /posts/{id} answers 401 when the caller is not the author")
+    @DisplayName("PUT /posts/{id} answers 403 when the caller is not the author")
     void rejectsUpdateFromNonAuthor() throws Exception {
         when(postService.updatePost(anyLong(), any(UpdatePostDto.class), any(User.class)))
                 .thenThrow(new UnauthorizedAccessException("not authorized"));
@@ -167,8 +167,8 @@ class PostControllerTest {
         mockMvc.perform(put("/posts/10")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"Updated title\"}"))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error").value("Unauthorized access"));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("Forbidden"));
     }
 
     @Test

@@ -6,6 +6,7 @@ import com.jomariabejo.connectly_api.dto.LoginUserDto;
 import com.jomariabejo.connectly_api.dto.ForgotPasswordRequest;
 import com.jomariabejo.connectly_api.dto.ResetPasswordRequest;
 import com.jomariabejo.connectly_api.dto.GenericResponse;
+import com.jomariabejo.connectly_api.dto.user.UserResponseDto;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.model.VerificationToken;
 import com.jomariabejo.connectly_api.repository.UserRepository;
@@ -33,8 +34,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.lang.StackWalker.Option;
-import java.util.Calendar;
+import java.util.Date;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -75,10 +75,10 @@ public class AuthenticationController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Account created; verification email dispatched"),
             @ApiResponse(responseCode = "400", description = "Validation failed on the request body"),
-            @ApiResponse(responseCode = "500", description = "Email already in use")
+            @ApiResponse(responseCode = "409", description = "Username or email already registered")
     })
     @PostMapping("/registration")
-    public ResponseEntity<User> registerUserAccount(@Valid @RequestBody RegisterUserDto registerUserDto) {
+    public ResponseEntity<UserResponseDto> registerUserAccount(@Valid @RequestBody RegisterUserDto registerUserDto) {
         log.info("Starting registration");
         User registeredUser = authenticationService.signup(registerUserDto);
         log.info("Registered user: {}", registeredUser);
@@ -90,7 +90,7 @@ public class AuthenticationController {
                         Locale.ENGLISH,
                         appUrl));
         log.info("Return Registered user: {}", registeredUser);
-        return ResponseEntity.ok(registeredUser);
+        return ResponseEntity.ok(UserResponseDto.from(registeredUser));
     }
 
     @Operation(
@@ -133,9 +133,17 @@ public class AuthenticationController {
         }
 
         VerificationToken verificationToken = verificationTokenOptional.get();
-        
+
+        // This endpoint used to enable the account without looking at the expiry date, so a token
+        // from months ago still worked. /auth/verify has always checked; now both do.
+        if (verificationToken.getExpiryDate() != null
+                && verificationToken.getExpiryDate().before(new Date())) {
+            return ResponseEntity.badRequest().body("Verification token has expired");
+        }
+
         User user = verificationToken.getUser();
         user.setEnabled(true);
+        user.setVerificationToken(null);
         userRepository.save(user);
 
         tokenRepository.delete(verificationToken);

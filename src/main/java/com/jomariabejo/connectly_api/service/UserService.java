@@ -7,7 +7,7 @@ package com.jomariabejo.connectly_api.service;//package com.jomariabejo.connectl
 //import com.jomariabejo.connectly_api.exception.InvalidCredentialsException;
 //import com.jomariabejo.connectly_api.exception.UserAlreadyExistsException;
 //import com.jomariabejo.connectly_api.model.User;
-//import com.jomariabejo.connectly_api.repository.UserRepository;
+//import com.jomariabejo.connectly_api.model.Post;
 //import io.jsonwebtoken.Jwts;
 //import io.jsonwebtoken.SignatureAlgorithm;
 //import io.jsonwebtoken.security.Keys;
@@ -16,6 +16,7 @@ package com.jomariabejo.connectly_api.service;//package com.jomariabejo.connectl
 //import org.springframework.beans.factory.annotation.Value;
 //import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 //import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 //
 //import java.security.Key;
 //import java.util.Date;
@@ -116,11 +117,19 @@ package com.jomariabejo.connectly_api.service;//package com.jomariabejo.connectl
 
 import ch.qos.logback.core.model.Model;
 import com.jomariabejo.connectly_api.dto.PaginationDto;
+import com.jomariabejo.connectly_api.dto.user.UserResponseDto;
 import com.jomariabejo.connectly_api.dto.UserFilterDto;
 import com.jomariabejo.connectly_api.model.User;
+import com.jomariabejo.connectly_api.model.Post;
 import com.jomariabejo.connectly_api.model.VerificationToken;
+import com.jomariabejo.connectly_api.repository.CommentRepository;
+import com.jomariabejo.connectly_api.repository.LikeRespository;
+import com.jomariabejo.connectly_api.repository.PasswordResetTokenRepository;
+import com.jomariabejo.connectly_api.repository.PostRepository;
 import com.jomariabejo.connectly_api.repository.UserRepository;
 import com.jomariabejo.connectly_api.repository.VerificationTokenRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
@@ -140,16 +149,30 @@ import java.util.stream.Collectors;
 
 @Service
 public class UserService {
+    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
+
     private final UserRepository userRepository;
     private final VerificationTokenRepository tokenRepository;
     private final UserDetailsService userDetailsService;
+    private final PostRepository postRepository;
+    private final CommentRepository commentRepository;
+    private final LikeRespository likeRespository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
 
     public UserService(UserRepository userRepository,
                        VerificationTokenRepository tokenRepository,
-                       @Qualifier("userDetailsService") UserDetailsService userDetailsService) {
+                       @Qualifier("userDetailsService") UserDetailsService userDetailsService,
+                       PostRepository postRepository,
+                       CommentRepository commentRepository,
+                       LikeRespository likeRespository,
+                       PasswordResetTokenRepository passwordResetTokenRepository) {
         this.userRepository = userRepository;
         this.tokenRepository = tokenRepository;
         this.userDetailsService = userDetailsService;
+        this.postRepository = postRepository;
+        this.commentRepository = commentRepository;
+        this.likeRespository = likeRespository;
+        this.passwordResetTokenRepository = passwordResetTokenRepository;
     }
 
     public List<User> allUsers() {
@@ -172,12 +195,12 @@ public class UserService {
     }
 
     // Pagination methods
-    public PaginationDto<User> getAllUsersPaginated(Pageable pageable) {
+    public PaginationDto<UserResponseDto> getAllUsersPaginated(Pageable pageable) {
         Page<User> usersPage = userRepository.findAll(pageable);
         return mapPageToDto(usersPage);
     }
 
-    public PaginationDto<User> getAllUsersWithFilters(UserFilterDto filterDto, Pageable pageable) {
+    public PaginationDto<UserResponseDto> getAllUsersWithFilters(UserFilterDto filterDto, Pageable pageable) {
         Page<User> usersPage = userRepository.findWithFilters(
                 filterDto.getUsername(),
                 filterDto.getEmail(),
@@ -188,8 +211,10 @@ public class UserService {
         return mapPageToDto(usersPage);
     }
 
-    private PaginationDto<User> mapPageToDto(Page<User> page) {
-        List<User> content = page.getContent();
+    private PaginationDto<UserResponseDto> mapPageToDto(Page<User> page) {
+        List<UserResponseDto> content = page.getContent().stream()
+                .map(UserResponseDto::from)
+                .toList();
         return new PaginationDto<>(
                 content,
                 page.getNumber(),
@@ -238,9 +263,31 @@ public class UserService {
      *
      * @param user The user to permanently delete
      */
+    @Transactional
     public void permanentlyDeleteUser(User user) {
-        // Hard delete the user (cascade deletes are handled by database constraints)
+        // Every foreign key pointing at app_user is NO ACTION in the generated schema, so the
+        // dependants have to go first. Without this the delete threw a constraint violation, the
+        // scheduled task swallowed it, and any account with a single post, comment or like stayed
+        // soft-deleted forever while its owner had been told the data was gone.
+        likeRespository.deleteAllByUser(user);
+        commentRepository.deleteAllByUser(user);
+
+        // Comments and likes left by *other* people on this user's posts block the post delete.
+        List<Post> posts = postRepository.findByCreatedById(user.getId());
+        for (Post post : posts) {
+            likeRespository.deleteAllByPost(post);
+            commentRepository.deleteAllByPost(post);
+            postRepository.delete(post);
+        }
+
+        tokenRepository.deleteByUser(user);
+        passwordResetTokenRepository.deleteAllByUser(user);
+
+        user.getRoles().clear();
+        userRepository.save(user);
+
         userRepository.delete(user);
+        logger.info("Permanently deleted user {} and {} post(s)", user.getEmail(), posts.size());
     }
 
     /**
@@ -270,6 +317,7 @@ public class UserService {
      *
      * @return Count of users permanently deleted
      */
+    @Transactional
     public int checkAndDeleteScheduledUsers() {
         List<User> scheduledForDeletion = userRepository.findUsersScheduledForDeletion();
         
@@ -314,6 +362,19 @@ public class UserService {
      */
     public Optional<User> getUserById(Long id) {
         return userRepository.findActiveUserById(id);
+    }
+
+    /**
+     * Looks a user up regardless of soft-delete state.
+     *
+     * <p>The admin endpoints exist to manage accounts that are already scheduled for deletion, but
+     * they resolved users through {@link #getUserById(Long)}, which filters {@code deletedAt IS NULL}.
+     * A soft-deleted account was therefore invisible to them: force-delete answered 404, and
+     * extend-deletion could never reach its "user is not scheduled for deletion" branch because a
+     * scheduled user was never returned in the first place.
+     */
+    public Optional<User> getAnyUserById(Long id) {
+        return userRepository.findById(id);
     }
 
     /**

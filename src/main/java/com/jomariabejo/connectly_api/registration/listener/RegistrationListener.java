@@ -1,39 +1,38 @@
 package com.jomariabejo.connectly_api.registration.listener;
 
 import com.jomariabejo.connectly_api.model.User;
-import com.jomariabejo.connectly_api.service.UserService;
 import com.jomariabejo.connectly_api.service.VerificationTokenService;
 import com.jomariabejo.connectly_api.user.event.OnRegistrationCompleteEvent;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationListener;
-import org.springframework.context.MessageSource;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.UUID;
-
+/**
+ * Persists the {@code verification_token} row backing {@code GET /auth/registrationConfirm}.
+ *
+ * <p>This listener used to generate its own {@link java.util.UUID} here, so a single registration
+ * produced <b>two unrelated tokens</b>: the one on {@code app_user.verification_token} that
+ * {@code /auth/verify} checks and emails, and this one, which only
+ * {@code /auth/registrationConfirm} checks and which nobody was ever sent. The confirm endpoint
+ * therefore rejected the token users actually received.
+ *
+ * <p>It now reuses the token already assigned during signup, so both endpoints accept the same
+ * emailed value.
+ *
+ * <p>It also used to send a <i>second</i> registration email carrying its dead token.
+ * {@code AuthenticationService.signup} already sends the working one through {@code EmailService},
+ * so that duplicate has been removed.
+ */
 @Component
 public class RegistrationListener implements ApplicationListener<OnRegistrationCompleteEvent> {
 
-    private final UserService userService;
+    private static final Logger logger = LoggerFactory.getLogger(RegistrationListener.class);
+
     private final VerificationTokenService tokenService;
-    private final MessageSource messages;
-    private final JavaMailSender mailSender;
 
-    private final Logger logger = LoggerFactory.getLogger(RegistrationListener.class);
-
-    @Autowired
-    public RegistrationListener(UserService userService,
-                                VerificationTokenService tokenService,
-                                MessageSource messages,
-                                JavaMailSender mailSender) {
-        this.userService = userService;
+    public RegistrationListener(VerificationTokenService tokenService) {
         this.tokenService = tokenService;
-        this.messages = messages;
-        this.mailSender = mailSender;
     }
 
     @Override
@@ -43,28 +42,15 @@ public class RegistrationListener implements ApplicationListener<OnRegistrationC
 
     private void confirmRegistration(OnRegistrationCompleteEvent event) {
         User user = event.getUser();
-        String token = UUID.randomUUID().toString();
+        String token = user.getVerificationToken();
 
-        // Create verification token
-        tokenService.createVerificationToken(user, token);
-
-        String recipientAddress = user.getEmail();
-        String subject = "Registration Confirmation";
-        String confirmationUrl = event.getAppUrl() + "/auth/verify?token=" + token;
-
-        try {
-            String message = messages.getMessage("message.regSucc", null, event.getLocale());
-
-            SimpleMailMessage email = new SimpleMailMessage();
-            email.setTo(recipientAddress);
-            email.setSubject(subject);
-            email.setText(message + "\r\n" + confirmationUrl);
-
-            logger.info("Sending registration email to: " + recipientAddress);
-            mailSender.send(email);
-            logger.info("Registration email sent successfully");
-        } catch (Exception e) {
-            logger.error("Failed to send registration email", e);
+        if (token == null) {
+            logger.warn("No verification token on {} -- skipping token row; /auth/registrationConfirm "
+                    + "will not work for this account", user.getEmail());
+            return;
         }
+
+        tokenService.createVerificationToken(user, token);
+        logger.info("Stored verification token row for {}", user.getEmail());
     }
 }

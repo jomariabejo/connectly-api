@@ -27,29 +27,10 @@ Successfully permanently deleted 3 user account(s)
 
 The class also carries a commented-out hourly variant for testing.
 
-:::warning Accounts with content are never actually purged
-`schema.sql` declares `ON DELETE CASCADE` on `user_roles`, `verification_token` and `password_reset_token` — but `spring.sql.init.mode=never`, so **that file is never executed**. The live schema comes from Hibernate's `ddl-auto`, and every foreign key it generates is `NO ACTION`:
+:::info Purging used to fail for any account with content
+Every foreign key to `app_user` was `NO ACTION`, so deleting a user who had a single post, comment or like threw a constraint violation. The task caught and logged it, leaving the account soft-deleted forever while its owner had been told the data would be gone in 30 days.
 
-```
- table_name           | column_name | delete_rule
-----------------------+-------------+-------------
- comment              | user_id     | NO ACTION
- password_reset_token | user_id     | NO ACTION
- post                 | created_by  | NO ACTION
- post_like            | user_id     | NO ACTION
- user_roles           | user_id     | NO ACTION
- verification_token   | user_id     | NO ACTION
-```
-
-So deleting a user who has *any* dependent row fails:
-
-```
-ERROR: update or delete on table "app_user" violates foreign key constraint
-       "fk37mjvnvpwbqdpewm39q75h9q" on table "comment"
-DETAIL: Key (id)=(2) is still referenced from table "comment".
-```
-
-The task catches and logs the exception, so an account with a single post, comment or like **stays soft-deleted forever** — invisible to the API but never removed. Only accounts with no content at all are purged. See [known issues](../reference/known-issues.md).
+Fixed on both sides: `UserService.permanentlyDeleteUser` clears likes, comments and posts in dependency order before the user row, and the [Flyway baseline](../data-model/schema.md) declares `ON DELETE CASCADE`. See [known issues](../reference/known-issues.md).
 :::
 
 ## `PasswordResetTokenCleanupTask`
@@ -60,7 +41,7 @@ Removes expired password-reset tokens.
 |---|---|
 | Schedule | `@Scheduled(fixedRateString = "${security.password.reset.cleanup-interval:3600000}")` — hourly |
 | Configured by | `PASSWORD_RESET_CLEANUP_INTERVAL_MS` |
-| Calls | `PasswordResetTokenService.deleteExpiredTokens()` |
+| Calls | `PasswordResetTokenService.deleteExpiredTokens()` and `VerificationTokenService.cleanupExpiredTokens()` |
 
 Housekeeping only — an expired token is already rejected at validation time, so this just stops the table growing.
 
@@ -68,11 +49,16 @@ Housekeeping only — an expired token is already rejected at validation time, s
 
 **Rate-limit counters.** `RateLimitingService.clearAttemptTrackers()` carries `@Scheduled(fixedRateString = "${security.password.reset.attempt-cache-clear-interval:3660000}")`, so it does run roughly hourly — but the map is in-memory, so a restart clears it anyway. Note that property has no entry in `.env.example`; it falls back to its inline default.
 
-**Verification tokens.** `VerificationTokenService.cleanupExpiredTokens()` exists but carries no `@Scheduled` annotation, so nothing calls it. Expired verification tokens accumulate.
-
 ## Running in more than one instance
 
-Both jobs use plain Spring scheduling with no locking, so **every replica runs every job**. Two instances means two simultaneous deletion sweeps at 02:00. Before scaling out, add ShedLock or move the work to an external scheduler.
+Both jobs are wrapped in [ShedLock](https://github.com/lukas-krecan/ShedLock) via `@SchedulerLock`, backed by the `shedlock` table from the baseline migration. Each job takes a row lock, so **one instance runs it and the rest skip** — no more duplicate deletion sweeps at 02:00 when you scale out. On a single instance the lock is simply always acquired.
+
+| Job | Lock name | Held for |
+|---|---|---|
+| `permanentlyDeleteScheduledUsers` | `permanentlyDeleteScheduledUsers` | 5–30 min |
+| `cleanupExpiredTokens` | `cleanupExpiredTokens` | 1–10 min |
+
+Neither job retries on failure — it waits for the next scheduled run.
 
 ## Testing them by hand
 

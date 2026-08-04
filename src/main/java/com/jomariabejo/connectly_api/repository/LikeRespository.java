@@ -18,4 +18,10 @@ public interface LikeRespository extends CrudRepository<Like, Long> {
 
     Optional<Like> findByUserAndPost(User user, Post post);// <- Check if already liked
     List<Like> findAllByUser(User user); // Get all likes by user
+
+    // Used when permanently deleting an account: every FK to app_user is NO ACTION,
+    // so dependants must be removed before the user row can go.
+    void deleteAllByUser(User user);
+
+    void deleteAllByPost(Post post);
 }

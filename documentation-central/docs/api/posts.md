@@ -37,7 +37,7 @@ Create a post. The author comes from the token — never from the body.
 |---|---|
 | `201` | Created |
 | `400` | Validation failed — e.g. a title under 5 characters |
-| `403` | Missing or invalid token |
+| `401` | Missing or invalid token |
 
 ## `GET /posts/{id}`
 
@@ -71,12 +71,10 @@ Every field is overwritten with what you send — omit one and it becomes `null`
 | Status | When |
 |---|---|
 | `200` | Updated |
-| `401` | You are not the author |
-| `500` | No post with that id |
+| `403` | You are not the author |
+| `404` | No post with that id |
 
-:::warning Missing post gives 500, not 404
-`PostService.updatePost` throws a bare `RuntimeException("Post not found")`, which falls through to the catch-all handler. See [Errors](./errors.md).
-:::
+`PUT` on a missing post used to answer `500` — `PostService.updatePost` threw a bare `RuntimeException` that fell through to the catch-all handler. See [known issues](../reference/known-issues.md).
 
 ## `DELETE /posts/{id}`
 

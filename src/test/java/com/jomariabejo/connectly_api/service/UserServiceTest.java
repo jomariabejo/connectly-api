@@ -2,8 +2,14 @@ package com.jomariabejo.connectly_api.service;
 
 import com.jomariabejo.connectly_api.dto.PaginationDto;
 import com.jomariabejo.connectly_api.dto.UserFilterDto;
+import com.jomariabejo.connectly_api.dto.user.UserResponseDto;
+import com.jomariabejo.connectly_api.model.Post;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.model.VerificationToken;
+import com.jomariabejo.connectly_api.repository.CommentRepository;
+import com.jomariabejo.connectly_api.repository.LikeRespository;
+import com.jomariabejo.connectly_api.repository.PasswordResetTokenRepository;
+import com.jomariabejo.connectly_api.repository.PostRepository;
 import com.jomariabejo.connectly_api.repository.UserRepository;
 import com.jomariabejo.connectly_api.repository.VerificationTokenRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,6 +18,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -29,6 +36,8 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -51,6 +60,18 @@ class UserServiceTest {
 
     @Mock
     private UserDetailsService userDetailsService;
+
+    @Mock
+    private PostRepository postRepository;
+
+    @Mock
+    private CommentRepository commentRepository;
+
+    @Mock
+    private LikeRespository likeRespository;
+
+    @Mock
+    private PasswordResetTokenRepository passwordResetTokenRepository;
 
     @InjectMocks
     private UserService userService;
@@ -185,11 +206,36 @@ class UserServiceTest {
             User second = new User("other", "secret", "other@example.com");
             second.setId(2L);
             when(userRepository.findUsersScheduledForDeletion()).thenReturn(List.of(user, second));
+            when(postRepository.findByCreatedById(anyLong())).thenReturn(List.of());
 
             assertThat(userService.checkAndDeleteScheduledUsers()).isEqualTo(2);
 
             verify(userRepository).delete(user);
             verify(userRepository).delete(second);
+        }
+
+        @Test
+        @DisplayName("clears dependants before the user row, so the delete is not blocked")
+        void removesDependantsFirst() {
+            Post post = new Post();
+            post.setId(10L);
+            post.setCreatedBy(user);
+            when(postRepository.findByCreatedById(1L)).thenReturn(List.of(post));
+
+            userService.permanentlyDeleteUser(user);
+
+            // Every FK to app_user is NO ACTION, so without this the delete threw a constraint
+            // violation, the scheduled task swallowed it, and the account was never purged.
+            InOrder order = inOrder(likeRespository, commentRepository, postRepository,
+                    tokenRepository, passwordResetTokenRepository, userRepository);
+            order.verify(likeRespository).deleteAllByUser(user);
+            order.verify(commentRepository).deleteAllByUser(user);
+            order.verify(likeRespository).deleteAllByPost(post);
+            order.verify(commentRepository).deleteAllByPost(post);
+            order.verify(postRepository).delete(post);
+            order.verify(tokenRepository).deleteByUser(user);
+            order.verify(passwordResetTokenRepository).deleteAllByUser(user);
+            order.verify(userRepository).delete(user);
         }
 
         @Test
@@ -235,9 +281,11 @@ class UserServiceTest {
             Pageable pageable = PageRequest.of(0, 10);
             when(userRepository.findAll(pageable)).thenReturn(new PageImpl<>(List.of(user), pageable, 1));
 
-            PaginationDto<User> result = userService.getAllUsersPaginated(pageable);
+            PaginationDto<UserResponseDto> result = userService.getAllUsersPaginated(pageable);
 
-            assertThat(result.getContent()).containsExactly(user);
+            // The page carries the safe projection now, not the entity -- no password hash.
+            assertThat(result.getContent()).singleElement()
+                    .satisfies(dto -> assertThat(dto.getEmail()).isEqualTo(user.getEmail()));
             assertThat(result.getTotalElements()).isEqualTo(1);
             assertThat(result.isHasNext()).isFalse();
         }
@@ -250,9 +298,10 @@ class UserServiceTest {
             when(userRepository.findWithFilters("someone", "someone@example.com", "Some", "One", pageable))
                     .thenReturn(new PageImpl<>(List.of(user), pageable, 1));
 
-            PaginationDto<User> result = userService.getAllUsersWithFilters(filter, pageable);
+            PaginationDto<UserResponseDto> result = userService.getAllUsersWithFilters(filter, pageable);
 
-            assertThat(result.getContent()).containsExactly(user);
+            assertThat(result.getContent()).singleElement()
+                    .satisfies(dto -> assertThat(dto.getEmail()).isEqualTo(user.getEmail()));
             verify(userRepository).findWithFilters("someone", "someone@example.com", "Some", "One", pageable);
         }
     }

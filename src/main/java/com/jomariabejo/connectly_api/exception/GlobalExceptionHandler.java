@@ -5,7 +5,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.ErrorResponseException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -41,9 +48,21 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.NOT_FOUND, "Comment not found", ex);
     }
 
+    /**
+     * The caller is authenticated but does not own the resource.
+     *
+     * <p>403, not 401: 401 means "I do not know who you are" and is answered by
+     * {@code JwtAuthenticationEntryPoint} when the token is missing or invalid. Reaching here means
+     * the token was fine.
+     */
     @ExceptionHandler(UnauthorizedAccessException.class)
     public ResponseEntity<ErrorResponse> handleUnauthorizedAccessException(UnauthorizedAccessException ex) {
-        return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Unauthorized access", ex);
+        return buildErrorResponse(HttpStatus.FORBIDDEN, "Forbidden", ex);
+    }
+
+    @ExceptionHandler(WeakPasswordException.class)
+    public ResponseEntity<ErrorResponse> handleWeakPasswordException(WeakPasswordException ex) {
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "Password too weak", ex);
     }
 
     @ExceptionHandler(AccountDeletionScheduledException.class)
@@ -81,6 +100,39 @@ public class GlobalExceptionHandler {
         );
 
         return ResponseEntity.badRequest().body(errorResponse);
+    }
+
+    /**
+     * Exceptions Spring raises that already carry their own status — an unmatched URL
+     * ({@code NoResourceFoundException} → 404), a wrong verb
+     * ({@code HttpRequestMethodNotSupportedException} → 405), an unreadable or wrongly-typed body
+     * ({@code HttpMessageNotReadableException} → 400), and so on.
+     *
+     * <p>Like the validation handler above, this must be declared explicitly: without it the
+     * catch-all below claims them all and reports 500, so a simple typo in a URL looked like a
+     * server fault.
+     *
+     * <p>The classes are listed individually rather than caught via a common supertype because
+     * they share only the {@code org.springframework.web.ErrorResponse} <i>interface</i> —
+     * {@code NoResourceFoundException}, for one, extends {@code ServletException} rather than
+     * {@code ErrorResponseException}. The cast below is what reads the status back off them.
+     */
+    @ExceptionHandler({
+            ErrorResponseException.class,
+            NoResourceFoundException.class,
+            HttpRequestMethodNotSupportedException.class,
+            HttpMediaTypeNotSupportedException.class,
+            HttpMessageNotReadableException.class,
+            MissingServletRequestParameterException.class,
+            MethodArgumentTypeMismatchException.class
+    })
+    public ResponseEntity<ErrorResponse> handleSpringErrorResponse(Exception ex) {
+        HttpStatus status = ex instanceof org.springframework.web.ErrorResponse spring
+                ? HttpStatus.valueOf(spring.getStatusCode().value())
+                : HttpStatus.BAD_REQUEST;
+
+        logger.warn("{}: {}", status, ex.getMessage());
+        return buildErrorResponse(status, status.getReasonPhrase(), ex);
     }
 
     @ExceptionHandler(Exception.class)

@@ -151,7 +151,7 @@ class CommentControllerTest {
     }
 
     @Test
-    @DisplayName("PUT /posts/{postId}/comments/{commentId} answers 401 for a non-author")
+    @DisplayName("PUT /posts/{postId}/comments/{commentId} answers 403 for a non-author")
     void rejectsEditFromNonAuthor() throws Exception {
         when(commentService.updateComment(anyLong(), any(UpdateCommentDto.class), any(User.class)))
                 .thenThrow(new UnauthorizedAccessException("You are not authorized to update this comment."));
@@ -159,8 +159,8 @@ class CommentControllerTest {
         mockMvc.perform(put("/posts/10/comments/100")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"text\":\"Edited\"}"))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error").value("Unauthorized access"));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("Forbidden"));
     }
 
     @Test
@@ -173,13 +173,13 @@ class CommentControllerTest {
     }
 
     @Test
-    @DisplayName("DELETE /posts/{postId}/comments/{commentId} answers 401 for a non-author")
+    @DisplayName("DELETE /posts/{postId}/comments/{commentId} answers 403 for a non-author")
     void rejectsDeleteFromNonAuthor() throws Exception {
         org.mockito.Mockito.doThrow(new UnauthorizedAccessException("You are not authorized to delete this comment."))
                 .when(commentService).deleteComment(anyLong(), anyLong(), any(User.class));
 
         mockMvc.perform(delete("/posts/10/comments/100"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isForbidden());
     }
 
     @Test

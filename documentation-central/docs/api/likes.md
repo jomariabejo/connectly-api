@@ -28,7 +28,7 @@ One endpoint for both liking and unliking. There is no `DELETE` variant.
 |---|---|
 | `200` | Toggled |
 | `404` | No post with that id |
-| `403` | Missing or invalid token |
+| `401` | Missing or invalid token |
 
 ```bash
 $ curl -X POST http://localhost:8080/1/likes/toggle -H "Authorization: Bearer $JWT"

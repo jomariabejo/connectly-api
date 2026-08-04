@@ -143,14 +143,26 @@ class CommentServiceTest {
         }
 
         @Test
-        @DisplayName("looks up by comment id alone -- postId and caller are not checked")
-        void ignoresPostIdAndCaller() {
+        @DisplayName("readable by any authenticated user, not just the author")
+        void readableByNonAuthor() {
             CommentResponseDto expected = new CommentResponseDto(comment);
             when(commentRepository.findById(100L)).thenReturn(Optional.of(comment));
             when(commentMapper.commentToCommentResponseDto(comment)).thenReturn(expected);
 
-            // A mismatched postId and an unrelated caller both still resolve the comment.
-            assertThat(commentService.getComment(999L, 100L, stranger)).isEqualTo(expected);
+            // Comments are public within their post -- only editing and deleting are author-only.
+            assertThat(commentService.getComment(10L, 100L, stranger)).isEqualTo(expected);
+        }
+
+        @Test
+        @DisplayName("rejects a comment that belongs to a different post")
+        void rejectsPostIdMismatch() {
+            when(commentRepository.findById(100L)).thenReturn(Optional.of(comment));
+
+            // The postId used to be accepted and ignored, so /posts/999/comments/100 happily
+            // returned a comment belonging to post 10.
+            assertThatThrownBy(() -> commentService.getComment(999L, 100L, author))
+                    .isInstanceOf(CommentNotFoundException.class)
+                    .hasMessageContaining("does not belong to post 999");
         }
 
         @Test

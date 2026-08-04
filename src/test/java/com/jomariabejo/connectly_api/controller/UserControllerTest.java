@@ -2,6 +2,7 @@ package com.jomariabejo.connectly_api.controller;
 
 import com.jomariabejo.connectly_api.dto.PaginationDto;
 import com.jomariabejo.connectly_api.dto.UserFilterDto;
+import com.jomariabejo.connectly_api.dto.user.UserResponseDto;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.model.VerificationToken;
 import com.jomariabejo.connectly_api.repository.VerificationTokenRepository;
@@ -105,7 +106,7 @@ class UserControllerTest {
     @DisplayName("GET /users/paginated applies the id,asc page-10 default")
     void appliesPageableDefaults() throws Exception {
         when(userService.getAllUsersPaginated(any(Pageable.class)))
-                .thenReturn(new PaginationDto<>(List.of(user), 0, 10, 1, 1));
+                .thenReturn(new PaginationDto<>(List.of(UserResponseDto.from(user)), 0, 10, 1, 1));
 
         mockMvc.perform(get("/users/paginated"))
                 .andExpect(status().isOk())
@@ -124,7 +125,7 @@ class UserControllerTest {
     @DisplayName("GET /users/paginated switches to the filtered query when a filter is supplied")
     void switchesToFilteredQuery() throws Exception {
         when(userService.getAllUsersWithFilters(any(UserFilterDto.class), any(Pageable.class)))
-                .thenReturn(new PaginationDto<>(List.of(user), 0, 10, 1, 1));
+                .thenReturn(new PaginationDto<>(List.of(UserResponseDto.from(user)), 0, 10, 1, 1));
 
         mockMvc.perform(get("/users/paginated").param("email", "someone@"))
                 .andExpect(status().isOk())
@@ -233,7 +234,7 @@ class UserControllerTest {
     @WithMockUser(roles = "ADMIN")
     @DisplayName("DELETE /users/admin/users/{id} soft-deletes by default")
     void adminSoftDeletesByDefault() throws Exception {
-        when(userService.getUserById(2L)).thenReturn(Optional.of(user));
+        when(userService.getAnyUserById(2L)).thenReturn(Optional.of(user));
 
         mockMvc.perform(delete("/users/admin/users/2"))
                 .andExpect(status().isOk())
@@ -247,7 +248,7 @@ class UserControllerTest {
     @WithMockUser(roles = "ADMIN")
     @DisplayName("DELETE /users/admin/users/{id} hard-deletes when forceDelete is set")
     void adminForceDeletes() throws Exception {
-        when(userService.getUserById(2L)).thenReturn(Optional.of(user));
+        when(userService.getAnyUserById(2L)).thenReturn(Optional.of(user));
 
         mockMvc.perform(delete("/users/admin/users/2")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -263,7 +264,7 @@ class UserControllerTest {
     @WithMockUser(roles = "ADMIN")
     @DisplayName("DELETE /users/admin/users/{id} answers 404 for an unknown user")
     void adminDeleteReportsMissingUser() throws Exception {
-        when(userService.getUserById(404L)).thenReturn(Optional.empty());
+        when(userService.getAnyUserById(404L)).thenReturn(Optional.empty());
 
         mockMvc.perform(delete("/users/admin/users/404"))
                 .andExpect(status().isNotFound())
@@ -276,7 +277,7 @@ class UserControllerTest {
     void adminExtendsGracePeriod() throws Exception {
         user.setDeletedAt(new Date());
         user.setScheduledDeletionAt(daysFromNow(10));
-        when(userService.getUserById(2L)).thenReturn(Optional.of(user));
+        when(userService.getAnyUserById(2L)).thenReturn(Optional.of(user));
 
         mockMvc.perform(put("/users/admin/users/2/extend-deletion")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -304,7 +305,7 @@ class UserControllerTest {
     @WithMockUser(roles = "ADMIN")
     @DisplayName("PUT /users/admin/users/{id}/extend-deletion rejects a user who is not scheduled")
     void adminRejectsUnscheduledUser() throws Exception {
-        when(userService.getUserById(2L)).thenReturn(Optional.of(user));
+        when(userService.getAnyUserById(2L)).thenReturn(Optional.of(user));
 
         mockMvc.perform(put("/users/admin/users/2/extend-deletion")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -337,6 +338,6 @@ class UserControllerTest {
                 .andExpect(jsonPath("$").isEmpty());
 
         verify(userService).getUsersScheduledForDeletion();
-        verify(userService, never()).getUserById(anyLong());
+        verify(userService, never()).getAnyUserById(anyLong());
     }
 }

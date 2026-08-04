@@ -82,9 +82,9 @@ Real environment variables take precedence over `.env`, so CI and production can
 createdb connectly_db
 ```
 
-Defaults to `postgres`/`admin` on `localhost:5432`. Set `DB_URL`, `DB_USERNAME` and `DB_PASSWORD` in `.env` to change that.
+That is all — Flyway creates every table and seeds the roles on first start. Defaults to `postgres`/`admin` on `localhost:5432`; set `DB_URL`, `DB_USERNAME` and `DB_PASSWORD` in `.env` to change that.
 
-> ⚠️ `JPA_DDL_AUTO` defaults to `create-drop`, which **rebuilds the schema on every start and drops it on shutdown**. Fine locally; set it to `validate` or `none` anywhere you care about the data.
+The schema is owned by migrations in `src/main/resources/db/migration`, and Hibernate runs with `ddl-auto=validate` so it refuses to start if the entities and tables disagree.
 
 #### 4. Setup Local Email with Mailpit
 Mailpit captures outgoing mail locally so you can read verification and password-reset messages:
@@ -108,10 +108,10 @@ The API will be running at `http://localhost:8080`, with Swagger UI at `http://l
 
 ## 📡 API Endpoints
 
-There is **no `/api` prefix**. Send `Authorization: Bearer <token>` on everything outside `/auth/**`.
+There is **no `/api` prefix**. Send `Authorization: Bearer <token>` on everything outside `/auth/**`. A missing or invalid token gets **401**; a valid token without the right ownership or role gets **403**.
 
 ### Authentication (public)
-- `POST /auth/registration` — Register a new account
+- `POST /auth/registration` — Register a new account (password needs 8+ chars, uppercase, digit, special)
 - `POST /auth/login` — Log in, returns a JWT
 - `GET /auth/verify?token=TOKEN` — Verify an email address
 - `GET /auth/registrationConfirm?token=TOKEN` — Confirm from the emailed link
@@ -158,7 +158,7 @@ There is **no `/api` prefix**. Send `Authorization: Bearer <token>` on everythin
 ## 🧪 Testing
 
 ```bash
-./gradlew unitTest   # Mockito unit tests + controller slices — no database needed
+./gradlew unitTest   # 143 Mockito unit tests + controller slices — no database needed
 ./gradlew test       # adds ConnectlyApiApplicationTests, which needs PostgreSQL running
 ```
 

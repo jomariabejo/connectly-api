@@ -1,0 +1,1533 @@
+openapi: 3.1.0
+info:
+  title: Connectly API
+  description: |-
+    Backend for a social platform: users, posts, comments and likes, with JWT authentication, email verification, password reset (link or OTP) and soft account deletion with a 30-day grace period.
+
+    Send `Authorization: Bearer <token>` on every endpoint outside `/auth/**`. Obtain a token from `POST /auth/login`.
+  contact:
+    name: jomariabejo
+    url: https://github.com/jomariabejo/connectly-api
+  license:
+    name: MIT
+    url: https://github.com/jomariabejo/connectly-api/blob/main/LICENSE
+  version: 0.0.1-SNAPSHOT
+servers:
+- url: http://localhost:8080
+  description: Local development
+tags:
+- name: Users
+  description: "Profile access, account deletion with a 30-day grace period, reactivation,\
+    \ and admin account management."
+- name: Comments
+  description: Comments nested under a post. Editing and deleting are restricted to
+    the comment's author.
+- name: Likes
+  description: "Toggle, count and list post likes. All routes are nested under /{postId}."
+- name: Authentication
+  description: "Registration, email verification, login and password reset. Every\
+    \ endpoint here is public."
+- name: Posts
+  description: "Create, read, update and delete posts. Reads are owner-scoped: a post\
+    \ is only visible to its author."
+paths:
+  /users/admin/users/{id}/extend-deletion:
+    put:
+      tags:
+      - Users
+      summary: "[ADMIN] Extend a deletion grace period"
+      description: "Pushes the scheduled deletion out by `extensionDays`. Full path:\
+        \ `/users/admin/users/{id}/extend-deletion`."
+      operationId: extendDeletionPeriod
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminDeleteAccountRequestDto"
+        required: true
+      responses:
+        "200":
+          description: Grace period extended
+          content:
+            '*/*':
+              schema:
+                type: string
+        "400":
+          description: "extensionDays missing or <= 0, or the user is not scheduled\
+            \ for deletion"
+          content:
+            '*/*':
+              schema:
+                type: string
+        "403":
+          description: Caller does not hold ROLE_ADMIN
+          content:
+            '*/*':
+              schema:
+                type: string
+        "404":
+          description: No user exists with this id
+          content:
+            '*/*':
+              schema:
+                type: string
+      security:
+      - bearerAuth: []
+  /posts/{postId}/comments/{commentId}:
+    get:
+      tags:
+      - Comments
+      summary: Get a single comment
+      operationId: getComment
+      parameters:
+      - name: postId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: commentId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: Comment returned
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CommentResponseDto"
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CommentResponseDto"
+        "404":
+          description: No comment exists with this id
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CommentResponseDto"
+      security:
+      - bearerAuth: []
+    put:
+      tags:
+      - Comments
+      summary: Update a comment
+      description: Only the comment's author may edit it.
+      operationId: updateComment
+      parameters:
+      - name: postId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: commentId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCommentDto"
+        required: true
+      responses:
+        "200":
+          description: Comment updated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CommentResponseDto"
+        "401":
+          description: "Missing bearer token, or the caller is not the comment's author"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CommentResponseDto"
+        "404":
+          description: No comment exists with this id
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CommentResponseDto"
+      security:
+      - bearerAuth: []
+    delete:
+      tags:
+      - Comments
+      summary: Delete a comment
+      description: Only the comment's author may delete it.
+      operationId: deleteComment
+      parameters:
+      - name: postId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: commentId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "204":
+          description: Comment deleted
+        "401":
+          description: "Missing bearer token, or the caller is not the comment's author"
+        "404":
+          description: No comment exists with this id
+      security:
+      - bearerAuth: []
+  /posts/{id}:
+    get:
+      tags:
+      - Posts
+      summary: Get a single post
+      description: "Returns 403 both when the post does not exist and when the caller\
+        \ is not its author -- PostService.getPost throws in both cases and the controller\
+        \ maps either to FORBIDDEN, so a missing post is deliberately indistinguishable\
+        \ from someone else's post."
+      operationId: getPost
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: Post returned
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PostResponseDto"
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PostResponseDto"
+        "403":
+          description: "Post not found, or not owned by the caller"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PostResponseDto"
+      security:
+      - bearerAuth: []
+    put:
+      tags:
+      - Posts
+      summary: Update a post
+      description: Only the author may update a post.
+      operationId: updatePost
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePostDto"
+        required: true
+      responses:
+        "200":
+          description: Post updated
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PostResponseDto"
+        "401":
+          description: "Missing bearer token, or the caller is not the author"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PostResponseDto"
+        "500":
+          description: No post exists with this id
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PostResponseDto"
+      security:
+      - bearerAuth: []
+    delete:
+      tags:
+      - Posts
+      summary: Delete a post
+      description: "Permitted for the author. As with GET, a missing post and an unowned\
+        \ post both yield 403."
+      operationId: deletePost
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "204":
+          description: Post deleted
+        "401":
+          description: Missing or invalid bearer token
+        "403":
+          description: "Post not found, or not owned by the caller"
+      security:
+      - bearerAuth: []
+  /{postId}/likes/toggle:
+    post:
+      tags:
+      - Likes
+      summary: Like or unlike a post
+      description: "Idempotent toggle: returns `true` in `data` if the post is now\
+        \ liked, `false` if the like was removed."
+      operationId: toggleLike
+      parameters:
+      - name: postId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: Like toggled; `data` holds the new state
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GenericResponseBoolean"
+      security:
+      - bearerAuth: []
+  /users/reactivate:
+    post:
+      tags:
+      - Users
+      summary: Reactivate a deleted account
+      description: Restores an account inside its 30-day grace period using the reactivation
+        token from the deletion email.
+      operationId: reactivateAccount
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReactivateAccountRequestDto"
+        required: true
+      responses:
+        "200":
+          description: Account reactivated
+          content:
+            '*/*':
+              schema:
+                type: string
+        "400":
+          description: "Invalid or expired reactivation token, or the grace period\
+            \ has lapsed"
+          content:
+            '*/*':
+              schema:
+                type: string
+      security:
+      - bearerAuth: []
+  /posts:
+    get:
+      tags:
+      - Posts
+      summary: "List posts (paginated, filterable)"
+      description: "Standard Spring Data paging: `?page=0&size=10&sort=createdAt,desc`\
+        \ (that is also the default). Supplying any of the filter parameters switches\
+        \ to the filtered query."
+      operationId: getAllPostsPaginated
+      parameters:
+      - name: pageable
+        in: query
+        required: true
+        schema:
+          $ref: "#/components/schemas/Pageable"
+      - name: title
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: content
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: postType
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: privacy
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: createdById
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: A PaginationDto page of posts
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PaginationDtoPostResponseDto"
+      security:
+      - bearerAuth: []
+    post:
+      tags:
+      - Posts
+      summary: Create a post
+      description: The authenticated user becomes the post's author.
+      operationId: createPost
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePostDto"
+        required: true
+      responses:
+        "201":
+          description: Post created
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CreatePostDto"
+        "400":
+          description: Validation failed on the request body
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CreatePostDto"
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CreatePostDto"
+      security:
+      - bearerAuth: []
+  /posts/{postId}/comments:
+    get:
+      tags:
+      - Comments
+      summary: "List a post's comments (paginated, filterable)"
+      description: "Defaults to `?page=0&size=10&sort=createdAt,desc`. Passing `content`\
+        \ or `createdById` switches to the filtered query."
+      operationId: getPostCommentsPaginated
+      parameters:
+      - name: postId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: pageable
+        in: query
+        required: true
+        schema:
+          $ref: "#/components/schemas/Pageable"
+      - name: content
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: createdById
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: A PaginationDto page of comments
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PaginationDtoCommentResponseDto"
+      security:
+      - bearerAuth: []
+    post:
+      tags:
+      - Comments
+      summary: Add a comment to a post
+      operationId: addComment
+      parameters:
+      - name: postId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommentDto"
+        required: true
+      responses:
+        "201":
+          description: Comment created
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CreateCommentDto"
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CreateCommentDto"
+        "500":
+          description: No post exists with this id
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CreateCommentDto"
+      security:
+      - bearerAuth: []
+  /auth/reset-password:
+    post:
+      tags:
+      - Authentication
+      summary: Complete a password reset
+      description: "Supply either the emailed token or the OTP, together with the\
+        \ new password. Tokens expire after security.password.reset.expiry.minutes\
+        \ and are single-use."
+      operationId: resetPassword
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordRequest"
+        required: true
+      responses:
+        "200":
+          description: Password changed
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GenericResponseString"
+        "400":
+          description: "Token invalid, expired, already used, or the new password\
+            \ is too weak"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GenericResponseString"
+        "500":
+          description: Unexpected failure while resetting
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GenericResponseString"
+  /auth/registration:
+    post:
+      tags:
+      - Authentication
+      summary: Register a new account
+      description: "Creates a disabled account and publishes OnRegistrationCompleteEvent,\
+        \ which mails a verification token valid for 24 hours. The account cannot\
+        \ log in until it is verified."
+      operationId: registerUserAccount
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterUserDto"
+        required: true
+      responses:
+        "200":
+          description: Account created; verification email dispatched
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UserResponseDto"
+        "400":
+          description: Validation failed on the request body
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UserResponseDto"
+        "409":
+          description: Username or email already registered
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UserResponseDto"
+  /auth/login:
+    post:
+      tags:
+      - Authentication
+      summary: Log in and obtain a JWT
+      description: "Returns a bearer token plus its lifetime in milliseconds (security.jwt.expiration,\
+        \ 1h by default). Send it as `Authorization: Bearer <token>` on every non-/auth\
+        \ endpoint."
+      operationId: authenticate
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginUserDto"
+        required: true
+      responses:
+        "200":
+          description: Authenticated; token returned
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: "Bad credentials, or the account is not yet verified"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+  /auth/forgot-password/otp:
+    post:
+      tags:
+      - Authentication
+      summary: Request a password reset one-time code
+      description: "Same neutral response and rate limiting as the email variant,\
+        \ but mails a short OTP instead of a link. The OTP allows security.password.reset.max-otp-attempts\
+        \ tries before it is burned."
+      operationId: forgotPasswordOtp
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordRequest"
+        required: true
+      responses:
+        "200":
+          description: Request accepted (sent only if the account exists)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GenericResponseString"
+        "400":
+          description: Malformed email address
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GenericResponseString"
+        "429":
+          description: Too many reset attempts for this address
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GenericResponseString"
+  /auth/forgot-password/email:
+    post:
+      tags:
+      - Authentication
+      summary: Request a password reset link by email
+      description: Always answers with the same neutral message so the endpoint cannot
+        be used to enumerate registered addresses. Rate limited by RateLimitingService.
+      operationId: forgotPasswordEmail
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordRequest"
+        required: true
+      responses:
+        "200":
+          description: Request accepted (sent only if the account exists)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GenericResponseString"
+        "400":
+          description: Malformed email address
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GenericResponseString"
+        "429":
+          description: Too many reset attempts for this address
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GenericResponseString"
+  /{postId}/likes/my-likes:
+    get:
+      tags:
+      - Likes
+      summary: List the caller's likes
+      description: "Returns every like the authenticated user has made across all\
+        \ posts. The `{postId}` in the path is inherited from the class-level mapping\
+        \ and is ignored -- pass any value."
+      operationId: getMyLikes
+      responses:
+        "200":
+          description: Likes returned in `data`
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GenericResponseListLikeDto"
+      security:
+      - bearerAuth: []
+  /{postId}/likes/count:
+    get:
+      tags:
+      - Likes
+      summary: Count a post's likes
+      operationId: countLikes
+      parameters:
+      - name: postId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: Like count returned in `data`
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GenericResponseLong"
+      security:
+      - bearerAuth: []
+  /users/paginated:
+    get:
+      tags:
+      - Users
+      summary: "List users (paginated, filterable)"
+      description: "Defaults to `?page=0&size=10&sort=id,asc`. Passing any of `username`,\
+        \ `email`, `firstName` or `lastName` switches to the filtered query."
+      operationId: getAllUsersPaginated
+      parameters:
+      - name: pageable
+        in: query
+        required: true
+        schema:
+          $ref: "#/components/schemas/Pageable"
+      - name: username
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: email
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: firstName
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: lastName
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: A PaginationDto page of users
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PaginationDtoUserResponseDto"
+      security:
+      - bearerAuth: []
+  /users/me:
+    get:
+      tags:
+      - Users
+      summary: Get the caller's profile
+      operationId: authenticatedUser
+      responses:
+        "200":
+          description: Profile returned
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UserResponseDto"
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UserResponseDto"
+      security:
+      - bearerAuth: []
+    delete:
+      tags:
+      - Users
+      summary: Delete the caller's account (soft delete)
+      description: "Marks the account deleted and schedules permanent removal 30 days\
+        \ out, then mails a reactivation token. Returns 202 Accepted, not 204 -- deletion\
+        \ is scheduled, not immediate. The body carries both timestamps and the grace\
+        \ period in days."
+      operationId: deleteAccount
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteAccountRequestDto"
+      responses:
+        "202":
+          description: Deletion scheduled; reactivation token issued
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/DeleteAccountResponseDto"
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/DeleteAccountResponseDto"
+      security:
+      - bearerAuth: []
+  /users/admin/users/scheduled-deletion:
+    get:
+      tags:
+      - Users
+      summary: "[ADMIN] List accounts pending permanent deletion"
+      description: "Full path: `/users/admin/users/scheduled-deletion`."
+      operationId: getUsersScheduledForDeletion
+      responses:
+        "200":
+          description: Accounts awaiting permanent deletion
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserResponseDto"
+        "403":
+          description: Caller does not hold ROLE_ADMIN
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserResponseDto"
+      security:
+      - bearerAuth: []
+  /users/:
+    get:
+      tags:
+      - Users
+      summary: List all users
+      description: "Unpaginated. Note the trailing slash: the path is `/users/`, not\
+        \ `/users`. Prefer /users/paginated."
+      operationId: allUsers
+      responses:
+        "200":
+          description: Users returned
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserResponseDto"
+      security:
+      - bearerAuth: []
+  /posts/user/{userId}/paginated:
+    get:
+      tags:
+      - Posts
+      summary: "List one user's posts (paginated, filterable)"
+      operationId: getUserPostsPaginated
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: pageable
+        in: query
+        required: true
+        schema:
+          $ref: "#/components/schemas/Pageable"
+      - name: title
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: content
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: postType
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: privacy
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: A PaginationDto page of that user's posts
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PaginationDtoPostResponseDto"
+      security:
+      - bearerAuth: []
+  /posts/my-posts:
+    get:
+      tags:
+      - Posts
+      summary: List the caller's posts
+      description: Unpaginated. Prefer /posts/my-posts/paginated for anything but
+        small accounts.
+      operationId: getPostsByAuthenticatedUser
+      responses:
+        "200":
+          description: Posts returned
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PostResponseDto"
+      security:
+      - bearerAuth: []
+  /posts/my-posts/paginated:
+    get:
+      tags:
+      - Posts
+      summary: "List the caller's posts (paginated, filterable)"
+      operationId: getAuthenticatedUserPostsPaginated
+      parameters:
+      - name: pageable
+        in: query
+        required: true
+        schema:
+          $ref: "#/components/schemas/Pageable"
+      - name: title
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: content
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: postType
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: privacy
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: A PaginationDto page of the caller's posts
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PaginationDtoPostResponseDto"
+      security:
+      - bearerAuth: []
+  /auth/verify:
+    get:
+      tags:
+      - Authentication
+      summary: Verify an email address
+      description: "Validates the token and its expiry date, then enables the account."
+      operationId: verifyAccount
+      parameters:
+      - name: token
+        in: query
+        description: Verification token from the registration email
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Email verified
+          content:
+            '*/*':
+              schema:
+                type: string
+        "400":
+          description: Invalid or expired verification token
+          content:
+            '*/*':
+              schema:
+                type: string
+  /auth/registrationConfirm:
+    get:
+      tags:
+      - Authentication
+      summary: Confirm registration from the emailed link
+      description: Enables the account and consumes the verification token. This is
+        the link target used by the registration email; see /auth/verify for the equivalent
+        that validates expiry.
+      operationId: confirmRegistration
+      parameters:
+      - name: token
+        in: query
+        description: Verification token from the registration email
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Account activated
+          content:
+            '*/*':
+              schema:
+                type: object
+        "400":
+          description: Unknown verification token
+          content:
+            '*/*':
+              schema:
+                type: object
+  /users/admin/users/{id}:
+    delete:
+      tags:
+      - Users
+      summary: "[ADMIN] Delete a user account"
+      description: "Soft-deletes by default. Send `{\"forceDelete\": true}` to bypass\
+        \ the grace period and remove the account immediately. Full path: `/users/admin/users/{id}`."
+      operationId: adminDeleteUser
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminDeleteAccountRequestDto"
+      responses:
+        "200":
+          description: Account deleted or marked for deletion
+          content:
+            '*/*':
+              schema:
+                type: string
+        "403":
+          description: Caller does not hold ROLE_ADMIN
+          content:
+            '*/*':
+              schema:
+                type: string
+        "404":
+          description: No user exists with this id
+          content:
+            '*/*':
+              schema:
+                type: string
+      security:
+      - bearerAuth: []
+components:
+  schemas:
+    AdminDeleteAccountRequestDto:
+      type: object
+      properties:
+        forceDelete:
+          type: boolean
+        reason:
+          type: string
+        extensionDays:
+          type: integer
+          format: int32
+    UpdateCommentDto:
+      type: object
+      properties:
+        text:
+          type: string
+          minLength: 1
+    CommentResponseDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        user:
+          $ref: "#/components/schemas/UserResponseDto"
+        text:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    UserResponseDto:
+      type: object
+      description: A user profile. Never carries credentials or verification tokens.
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        username:
+          type: string
+          example: helloworld
+        email:
+          type: string
+          example: test@gmail.com
+        firstName:
+          type: string
+          example: Jomari
+        lastName:
+          type: string
+          example: Abejo
+        enabled:
+          type: boolean
+          description: False until the email address has been verified
+          example: true
+        roles:
+          type: array
+          description: "Granted role names, without the ROLE_ prefix"
+          example:
+          - USER
+          items:
+            type: string
+          uniqueItems: true
+        deletedAt:
+          type: string
+          format: date-time
+          description: Null unless the account is scheduled for deletion
+        scheduledDeletionAt:
+          type: string
+          format: date-time
+          description: When a scheduled account is permanently removed; null otherwise
+        autoReactivationEnabled:
+          type: boolean
+          description: Whether logging in during the grace period restores the account
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    UpdatePostDto:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 100
+          minLength: 5
+        content:
+          type: string
+        postType:
+          type: string
+        privacy:
+          type: string
+        metadata:
+          type: string
+    GrantedAuthority:
+      type: object
+      properties:
+        authority:
+          type: string
+    PostResponseDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        content:
+          type: string
+        postType:
+          type: string
+        metadata:
+          type: string
+        privacy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          $ref: "#/components/schemas/User"
+    Role:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        description:
+          type: string
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        password:
+          type: string
+        email:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/Role"
+          uniqueItems: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        enabled:
+          type: boolean
+        verificationToken:
+          type: string
+        expiryDate:
+          type: string
+          format: date-time
+        deletedAt:
+          type: string
+          format: date-time
+        scheduledDeletionAt:
+          type: string
+          format: date-time
+        autoReactivationEnabled:
+          type: boolean
+        authorities:
+          type: array
+          items:
+            $ref: "#/components/schemas/GrantedAuthority"
+        active:
+          type: boolean
+        accountNonExpired:
+          type: boolean
+        accountNonLocked:
+          type: boolean
+        credentialsNonExpired:
+          type: boolean
+        usernameField:
+          type: string
+    GenericResponseBoolean:
+      type: object
+      properties:
+        message:
+          type: string
+        data:
+          type: boolean
+    ReactivateAccountRequestDto:
+      type: object
+      properties:
+        reactivationToken:
+          type: string
+          minLength: 1
+    CreatePostDto:
+      type: object
+      description: "A new post. The author is taken from the bearer token, never from\
+        \ the body."
+      properties:
+        title:
+          type: string
+          example: My First Post
+          maxLength: 100
+          minLength: 5
+        content:
+          type: string
+          example: This is my first post
+          minLength: 1
+        postType:
+          type: string
+          description: Constrained by a CHECK on the post table
+          enum:
+          - text
+          - image
+          - video
+          example: text
+        privacy:
+          type: string
+          description: Constrained by a CHECK on the post table; defaults to public
+          enum:
+          - public
+          - private
+          example: public
+        metadata:
+          type: string
+          description: Free-form JSON stored in the post.metadata JSONB column
+          example: {}
+      required:
+      - content
+      - title
+    CreateCommentDto:
+      type: object
+      description: "A new comment. The post comes from the {postId} path segment and\
+        \ the author from the bearer token."
+      properties:
+        text:
+          type: string
+          example: Nice post!
+          minLength: 1
+      required:
+      - text
+    ResetPasswordRequest:
+      type: object
+      description: "Completes a password reset. Supply either token (email link flow)\
+        \ or otp (code flow), not both."
+      properties:
+        token:
+          type: string
+          description: Token from the reset email; leave null when using an OTP
+          example: your-reset-token-here
+        otp:
+          type: string
+          description: One-time code from the reset email; leave null when using a
+            token
+          example: 123456
+        newPassword:
+          type: string
+          description: "New password, at least security.password.validation.min-length\
+            \ characters"
+          example: NewSecurePassword123!
+    GenericResponseString:
+      type: object
+      properties:
+        message:
+          type: string
+        data:
+          type: string
+    RegisterUserDto:
+      type: object
+      description: New account details. The account starts disabled until the emailed
+        verification token is used.
+      properties:
+        email:
+          type: string
+          description: Must be unique across accounts
+          example: test@gmail.com
+          minLength: 1
+        password:
+          type: string
+          description: Stored BCrypt-hashed
+          example: admin123
+          minLength: 1
+        username:
+          type: string
+          description: Must be unique across accounts
+          example: helloworld
+          minLength: 1
+      required:
+      - email
+      - password
+      - username
+    LoginUserDto:
+      type: object
+      description: "Login credentials. Authentication is by email, not username."
+      properties:
+        email:
+          type: string
+          example: test@gmail.com
+          minLength: 1
+        password:
+          type: string
+          example: admin123
+          minLength: 1
+      required:
+      - email
+      - password
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        expiresIn:
+          type: integer
+          format: int64
+    ForgotPasswordRequest:
+      type: object
+      description: Address to send a reset link or OTP to.
+      properties:
+        email:
+          type: string
+          description: The response is identical whether or not this address is registered
+          example: user@example.com
+    GenericResponseListLikeDto:
+      type: object
+      properties:
+        message:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/LikeDto"
+    LikeDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        postId:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+    GenericResponseLong:
+      type: object
+      properties:
+        message:
+          type: string
+        data:
+          type: integer
+          format: int64
+    Pageable:
+      type: object
+      properties:
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+        sort:
+          type: array
+          items:
+            type: string
+    PaginationDtoUserResponseDto:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserResponseDto"
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+        hasNext:
+          type: boolean
+        hasPrevious:
+          type: boolean
+    PaginationDtoPostResponseDto:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/PostResponseDto"
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+        hasNext:
+          type: boolean
+        hasPrevious:
+          type: boolean
+    PaginationDtoCommentResponseDto:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommentResponseDto"
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+        hasNext:
+          type: boolean
+        hasPrevious:
+          type: boolean
+    DeleteAccountRequestDto:
+      type: object
+      properties:
+        reason:
+          type: string
+        autoReactivationEnabled:
+          type: boolean
+    DeleteAccountResponseDto:
+      type: object
+      properties:
+        message:
+          type: string
+        deletedAt:
+          type: string
+          format: date-time
+        scheduledDeletionAt:
+          type: string
+          format: date-time
+        gracePeriodDays:
+          type: integer
+          format: int32
+        autoReactivationEnabled:
+          type: boolean
+        reactivationInstructions:
+          type: string
+  securitySchemes:
+    bearerAuth:
+      type: http
+      description: JWT obtained from POST /auth/login. Paste the raw token; the Bearer
+        prefix is added for you.
+      in: header
+      scheme: bearer
+      bearerFormat: JWT

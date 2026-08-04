@@ -20,7 +20,7 @@ Add a comment. The post comes from the path and the author from the token, so th
 | `201` | Created |
 | `400` | `text` is blank |
 | `404` | No post with that id |
-| `403` | Missing or invalid token |
+| `401` | Missing or invalid token |
 
 ## `GET /posts/{postId}/comments/{commentId}`
 
@@ -29,8 +29,10 @@ Add a comment. The post comes from the path and the author from the token, so th
 | `200` | Returned |
 | `404` | No comment with that id |
 
-:::note Lookup is by comment id alone
-`CommentService.getComment` receives `postId` and the authenticated user but uses neither — it resolves the comment purely by `commentId`. A mismatched `postId` still returns the comment, and any authenticated user can read any comment. Reads are not owner-scoped here, unlike [posts](./posts.md).
+:::note Readable by anyone, but scoped to the post
+Comments are public within their post: any authenticated user can read one, unlike [posts](./posts.md), which are owner-scoped. Editing and deleting stay author-only.
+
+The `{postId}` **is** checked — a comment belonging to another post is a 404. It used to be accepted and ignored, so `/posts/999/comments/1` returned a comment from post 10.
 :::
 
 ## `PUT /posts/{postId}/comments/{commentId}`
@@ -42,7 +44,7 @@ Add a comment. The post comes from the path and the author from the token, so th
 | Status | When |
 |---|---|
 | `200` | Updated |
-| `401` | You are not the comment's author |
+| `403` | You are not the comment's author |
 | `404` | No comment with that id |
 
 ## `DELETE /posts/{postId}/comments/{commentId}`
@@ -50,7 +52,7 @@ Add a comment. The post comes from the path and the author from the token, so th
 | Status | When |
 |---|---|
 | `204` | Deleted |
-| `401` | You are not the comment's author |
+| `403` | You are not the comment's author |
 | `404` | No comment with that id |
 
 ## `GET /posts/{postId}/comments`
@@ -82,8 +84,8 @@ Comments by soft-deleted users are excluded from every query.
 }
 ```
 
-:::warning The embedded author includes the password hash
-`CommentResponseDto.user` is the full `User` entity, so every comment response carries that user's BCrypt hash. See [known issues](../reference/known-issues.md).
+:::info The embedded author is a safe projection
+`CommentResponseDto.user` used to be the full `User` entity, so every comment listing carried the author's BCrypt hash. It is now the same credential-free shape as [`GET /users/me`](./users.md).
 :::
 
 ## Examples

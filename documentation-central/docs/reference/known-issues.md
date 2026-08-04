@@ -5,183 +5,45 @@ title: Known issues
 
 # Known issues
 
-Behaviours that are surprising, wrong, or worth fixing — each one observed against a running instance, not inferred from reading code.
+Everything on this page was observed against a running instance, not inferred from reading code.
 
-Two were fixed while writing these docs and are recorded at the bottom.
-
----
-
-## Security
-
-### The JWT signing key is committed
-
-`application.properties` ships a default `jwt.secret-key`. It is in the public repository, so anyone can mint valid tokens against a deployment that has not overridden it.
-
-**Fix:** set `JWT_SECRET` from `openssl rand -hex 32`. See [Configuration](../getting-started/configuration.md).
-
-### The Bump.sh API token is committed in plaintext
-
-[`.github/workflows/bump.yml`](https://github.com/jomariabejo/connectly-api/blob/main/.github/workflows/bump.yml) has a literal `token:` value on two jobs.
-
-**Fix:** rotate it in the Bump.sh dashboard, then reference `${{ secrets.BUMP_TOKEN }}`. Rotation matters more than the code change — the current value is already public.
-
-### Responses leak the password hash
-
-`POST /auth/registration` and `GET /users/me` return the raw `User` entity, including the BCrypt hash and the verification token. `CommentResponseDto.user` embeds it too, so every comment listing carries the author's hash.
-
-```json
-{
-  "id": 1,
-  "password": "$2a$10$HqgA60KmLNFh34j0TFX7V…",
-  "verificationToken": "bd7ce86a-7b1c-478c-b0fe-a458d3ee5055"
-}
-```
-
-The verification token is the worse half: anyone who sees the registration response can activate the account without the mailbox.
-
-**Fix:** return a `UserDto` projection. One already exists at `dto/user/UserDto.java` and is unused.
-
-### Nothing ever assigns a role
-
-Registration creates users with an empty `roles` set and no endpoint grants one, so every account has zero authorities. `/user/**`, `/admin/**` and the three `@PreAuthorize("hasRole('ADMIN')")` endpoints are unreachable by anyone.
-
-**Workaround:** insert into `user_roles` by hand — and note `JPA_DDL_AUTO=create-drop` wipes it on restart.
-
-```sql
-INSERT INTO user_roles (user_id, role_id)
-SELECT u.id, r.id FROM app_user u, role r
-WHERE u.email = 'you@example.com' AND r.name = 'ADMIN';
-```
-
-**Fix:** assign `ROLE_USER` during signup, and add an admin-only role-management endpoint.
-
-### Registration accepts weak passwords
-
-`RegisterUserDto.password` carries only `@NotBlank`. The uppercase / digit / special-character rules live exclusively in `AuthenticationService.isPasswordStrong`, which is called from `resetPassword` and nothing else. `a` is a valid registration password.
-
-**Fix:** call `isPasswordStrong` from `signup` too.
-
-### CORS is configured twice and applied never
-
-Two configurations exist — the `spring.web.cors.*` properties and a `CorsConfigurationSource` bean hardcoding `http://localhost:8080` with `GET,POST`. The filter chain never calls `.cors(…)`, so neither is used and preflight requests fail:
-
-```bash
-$ curl -i -X OPTIONS http://localhost:8080/posts \
-    -H 'Origin: http://localhost:3000' -H 'Access-Control-Request-Method: GET'
-HTTP/1.1 403
-```
-
-No browser frontend on another origin can call this API.
-
-**Fix:** add `.cors(Customizer.withDefaults())` to the filter chain, delete the duplicate configuration, and drive the surviving one from `CORS_ALLOWED_ORIGINS`.
+Most of what used to be listed here **has since been fixed** — those entries moved to [Fixed](#fixed), each with the evidence that it is actually resolved. What remains open is below.
 
 ---
 
-## Correctness
+## Open
 
-### `/auth/registrationConfirm` rejects the token users receive
+### The JWT signing key ships with a public default
 
-Registering writes **two different tokens** for one account:
+`application.properties` carries a working `jwt.secret-key` so a fresh clone runs with no configuration. That value is in the public repository, so anyone can mint valid tokens against a deployment that has not overridden it.
 
-| Token | Stored in | Checked by | Emailed? |
-|---|---|---|---|
-| `472098eb-…` | `app_user.verification_token` | `GET /auth/verify` | ✅ |
-| `ee162fd2-…` | `verification_token` table | `GET /auth/registrationConfirm` | ❌ |
+Not "fixed" because removing the default would break zero-config startup, which is the point of it.
 
-`AuthenticationService.signup` writes the column; `RegistrationListener` independently generates a second UUID for the table. The email carries the first.
+**What to do:** set `JWT_SECRET` from `openssl rand -hex 32` for anything that is not your laptop. See [Configuration](../getting-started/configuration.md).
 
-```bash
-$ curl "http://localhost:8080/auth/registrationConfirm?token=<emailed token>"
-Invalid verification token          # 400
-$ curl "http://localhost:8080/auth/verify?token=<emailed token>"
-Email verified successfully.        # 200
-```
+### The Bump.sh token needs rotating
 
-`/auth/registrationConfirm` also never checks expiry.
+The workflow now reads `${{ secrets.BUMP_TOKEN }}` instead of a literal value, but **the old token is still public in the git history**. Changing the file does not un-publish it.
 
-**Fix:** have `RegistrationListener` reuse the token already on the user, or remove the endpoint.
+**What to do:** rotate it in the Bump.sh dashboard, then add the new value as a `BUMP_TOKEN` repository secret.
 
-### Deleted accounts with content are never purged
+### `GET /posts/{id}` returns 403 for a post that does not exist
 
-`ScheduledDeletionTask` hard-deletes expired accounts, but every foreign key to `app_user` in the generated schema is `NO ACTION`:
+Deliberate, not a defect — a missing post and someone else's post are made indistinguishable so the endpoint cannot be used to discover which IDs exist. Documented on [Posts](../api/posts.md).
 
-```
-ERROR: update or delete on table "app_user" violates foreign key constraint
-       "fk37mjvnvpwbqdpewm39q75h9q" on table "comment"
-```
+### Scheduled jobs assume one instance per environment
 
-The task catches and logs the failure, so an account with a single post, comment or like stays soft-deleted **forever**. Only empty accounts are removed. Users are told their data will be gone in 30 days; for most of them it will not be.
+[ShedLock](../architecture/scheduled-tasks.md) now stops replicas duplicating work, but the jobs still have no retry: a failure waits for the next scheduled run. Fine at this scale; worth revisiting if the deletion sweep becomes business-critical.
 
-**Fix:** delete the dependent rows first, or declare cascades on the entity associations.
+### Registration still sends only one email, and it is plain text
 
-### `schema.sql` never runs and has drifted
-
-`spring.sql.init.mode=never`, so the file is dead reference material. It has already diverged from the entities — it declares `ON DELETE CASCADE` on three foreign keys that are `NO ACTION` at runtime, and names a column `verificationToken` where Hibernate generates `verification_token`.
-
-**Fix:** adopt Flyway or Liquibase and set `JPA_DDL_AUTO=validate`.
-
-### `create-drop` is the default
-
-Every restart drops and recreates the schema. Correct for local work, catastrophic anywhere else, and easy to inherit by accident.
-
-**Fix:** set `JPA_DDL_AUTO=validate` outside development.
-
-### `getComment` ignores its `postId` and caller
-
-`CommentService.getComment(postId, commentId, user)` uses only `commentId`. A mismatched `postId` still resolves the comment, and any authenticated user can read any comment — unlike posts, which are owner-scoped.
-
-**Fix:** decide whether comments are public within a post (then drop the unused parameters) or owner-scoped (then enforce it).
+`RegistrationListener` no longer sends a duplicate, but the surviving message from `EmailService` is unstyled plain text and the `MessageSource` bundle the listener used to read is now unused.
 
 ---
 
-## Status codes
+## Fixed
 
-### Missing tokens give 403, not 401
-
-Spring Security rejects unauthenticated requests with `403`. Meanwhile `UnauthorizedAccessException` — raised when you *are* authenticated but do not own the resource — maps to `401`. That is backwards from the convention.
-
-**Fix:** add an `AuthenticationEntryPoint` returning `401`, and remap `UnauthorizedAccessException` to `403`.
-
-### Some missing resources give 500
-
-| Call | Expected | Actual | Cause |
-|---|---|---|---|
-| `PUT /posts/{id}` on a missing post | `404` | `500` | `PostService.updatePost` throws a bare `RuntimeException` |
-| `POST /auth/registration` with a duplicate email | `409` | `500` | `signup` throws `RuntimeException`, not the `EmailAlreadyInUseException` that exists and maps to 409 |
-
-**Fix:** throw the mapped domain exceptions.
-
-### Unmatched URLs give 500 for authenticated callers
-
-The catch-all `@ExceptionHandler(Exception.class)` intercepts Spring's own `NoResourceFoundException`, so an authenticated request to an unknown path returns `500` instead of `404`. (Unauthenticated ones get `403` from the security layer first.)
-
-**Fix:** add `@ExceptionHandler(ErrorResponseException.class)` that preserves the framework's status, ahead of the catch-all.
-
----
-
-## Maintenance
-
-### A stray duplicate of the request templates
-
-`src/main/resources/docs/http-template copy/` is an unmaintained copy of `http-template/`. It still contains the old, incorrect `/api/...` URLs. The canonical directory has been corrected; the copy has not.
-
-**Fix:** delete it.
-
-### `VerificationTokenService.cleanupExpiredTokens()` is never called
-
-The method exists but carries no `@Scheduled` annotation, so expired verification tokens accumulate indefinitely.
-
-### Scheduled jobs have no locking
-
-Both background tasks use plain Spring scheduling. Every replica runs every job, so scaling past one instance means concurrent deletion sweeps.
-
-**Fix:** ShedLock, or move the work to an external scheduler.
-
----
-
-## Fixed while writing these docs
-
-### The application could not start *(fixed)*
+### The application could not start
 
 `PostLikeController` declared `@PostMapping("/{postId}/likes/toggle")` beneath a class-level `@RequestMapping("/{postId}")`. The two concatenated into `/{postId}/{postId}/likes/toggle`, and Spring Boot 3's `PathPatternParser` refuses to capture the same variable twice:
 
@@ -194,19 +56,136 @@ Invalid mapping pattern detected:
 Not allowed to capture 'postId' twice in the same pattern
 ```
 
-The context aborted, so **no endpoint served any request**. The route now matches its siblings at `/{postId}/likes/toggle`, and `PostLikeControllerTest` guards the shape. Because the endpoint had never successfully served a request, this was not a breaking change.
+The context aborted, so **no endpoint served any request**. The route now sits at `/{postId}/likes/toggle` alongside its siblings, and `PostLikeControllerTest` fails at context load if a duplicate segment ever returns.
 
-### Validation errors returned 500 *(fixed)*
+### Malformed request bodies returned 500
 
-`GlobalExceptionHandler`'s catch-all claimed `MethodArgumentNotValidException` before Spring's `DefaultHandlerExceptionResolver` could map it, because `ExceptionHandlerExceptionResolver` runs first. Every malformed request body in the API came back as `500`.
+`GlobalExceptionHandler`'s catch-all claimed `MethodArgumentNotValidException` before Spring's `DefaultHandlerExceptionResolver` could map it, because `ExceptionHandlerExceptionResolver` runs first. An explicit handler now returns 400 listing the offending fields.
 
-An explicit handler now returns `400` with the offending fields:
+### Responses leaked the password hash and verification token
+
+`POST /auth/registration`, `GET /users/me`, the user listings and every embedded comment author serialized the raw `User` entity — BCrypt hash and verification token included. The token was the worse half: anyone who saw a registration response could activate the account without the mailbox.
+
+All of them now return [`UserResponseDto`](https://github.com/jomariabejo/connectly-api/blob/main/src/main/java/com/jomariabejo/connectly_api/dto/user/UserResponseDto.java), which omits `password`, `verificationToken` and `expiryDate`:
 
 ```json
 {
-  "status": 400,
-  "error": "Validation failed",
-  "message": "title: Title must be between 5 and 100 characters",
-  "timestamp": 1785801272830
+  "id": 1,
+  "username": "someone",
+  "email": "someone@example.com",
+  "enabled": false,
+  "roles": ["USER"],
+  "autoReactivationEnabled": true
 }
 ```
+
+### Nothing assigned a role
+
+Registration left `roles` empty, so every account had zero authorities and `/user/**`, `/admin/**` and all three `@PreAuthorize` endpoints were unreachable by anyone. Signup now grants `USER`, and the Flyway baseline seeds the `role` table. Verified: `GET /users/admin/users/scheduled-deletion` answers 200 for an account holding `ADMIN`.
+
+### Registration accepted weak passwords
+
+`RegisterUserDto` enforced only `@NotBlank` while the strength rules lived solely in the reset flow, so an account could be created with a password its owner could never reset back to. Both paths now share `isPasswordStrong`:
+
+```bash
+$ curl -X POST localhost:8080/auth/registration -d '{"…","password":"admin123"}'
+{"status":400,"error":"Password too weak",
+ "message":"Password must be at least 8 characters long and contain uppercase, number, and special character"}
+```
+
+### CORS was configured twice and applied never
+
+The filter chain never called `.cors(…)`, so neither the properties nor the `CorsConfigurationSource` bean took effect and no browser frontend on another origin could reach the API. The chain now calls it, and the bean reads `CORS_ALLOWED_ORIGINS` / `CORS_ALLOWED_METHODS` rather than hardcoding a disagreeing second copy:
+
+```bash
+$ curl -i -X OPTIONS localhost:8080/posts -H 'Origin: http://localhost:3000' \
+    -H 'Access-Control-Request-Method: GET'
+HTTP/1.1 200
+Access-Control-Allow-Origin: http://localhost:3000
+Access-Control-Allow-Methods: GET,POST,PUT,DELETE
+```
+
+### `/auth/registrationConfirm` rejected the token users received
+
+Registering produced two unrelated tokens: the one on `app_user.verification_token` that gets emailed, and a second UUID that `RegistrationListener` generated for the `verification_token` table. The confirm endpoint only accepted the second, which nobody was ever sent — and it also sent a *duplicate* registration email carrying its dead link.
+
+The listener now reuses the token already assigned at signup and no longer sends its own email. Both columns hold the same value, and both endpoints accept it:
+
+```
+verification_token (column) | token (table)               | same
+a8561612-d690-4a47-…        | a8561612-d690-4a47-…        | t
+```
+
+### Deleted accounts with content were never purged
+
+Every foreign key to `app_user` was `NO ACTION`, so deleting a user who had a single post, comment or like threw a constraint violation. `ScheduledDeletionTask` caught and logged it, leaving the account soft-deleted forever while its owner had been told the data would be gone in 30 days.
+
+Fixed on both sides: `permanentlyDeleteUser` clears dependants in order before the user row, and the Flyway baseline declares `ON DELETE CASCADE`. Verified against a soft-deleted account owning a post that carried another user's comment and like:
+
+```
+before: users=5 posts=2 comments=2 likes=2
+DELETE /users/admin/users/{id}  {"forceDelete": true}   ->  200 User permanently deleted
+after:  users=4 posts=1 comments=1 likes=1
+```
+
+### The admin endpoints could not see the accounts they manage
+
+Both resolved users through `getUserById`, which filters `deletedAt IS NULL`. A soft-deleted account was therefore invisible to them: force-delete answered 404, and `extend-deletion` could never reach its "user is not scheduled for deletion" branch, because a scheduled user was never returned in the first place. They now use `getAnyUserById`.
+
+### `schema.sql` never ran and had drifted
+
+`spring.sql.init.mode=never` meant the file was dead reference material, and it had already diverged from the entities. The schema is now owned by [Flyway migrations](../data-model/schema.md) with `JPA_DDL_AUTO=validate`, so Hibernate refuses to start if the entities and tables disagree.
+
+That check earned its keep immediately: it caught `VerificationToken` using `GenerationType.AUTO` — a sequence — where every other entity uses `IDENTITY`.
+
+```
+Schema-validation: missing sequence [verification_token_seq]
+```
+
+### `create-drop` was the default
+
+Every restart dropped and recreated the schema. The default is now `validate`; `create-drop` remains available via `JPA_DDL_AUTO` for anyone who wants it.
+
+### `getComment` ignored its `postId`
+
+`/posts/999/comments/1` cheerfully returned comment 1 even though it belonged to post 10. The comment is now checked against the path, and a mismatch is a 404. Comments stay readable by any authenticated user — only editing and deleting are author-only.
+
+### 401 and 403 were inverted
+
+Spring Security answered 403 for unauthenticated requests while `UnauthorizedAccessException` — raised when you *are* authenticated but do not own the resource — mapped to 401. A `JwtAuthenticationEntryPoint` and `JwtAccessDeniedHandler` now produce the conventional split:
+
+| Situation | Before | Now |
+|---|---|---|
+| No token | 403 | **401** |
+| Expired or malformed token | 403 | **401** |
+| Valid token, not the owner | 401 | **403** |
+| Valid token, missing role | 403 | 403 |
+
+### Missing resources and bad requests returned 500
+
+The catch-all swallowed anything Spring raised with its own status. Explicit handlers now preserve them:
+
+| Call | Before | Now |
+|---|---|---|
+| Unknown URL (authenticated) | 500 | **404** |
+| Wrong HTTP verb | 500 | **405** |
+| Unparseable request body | 500 | **400** |
+| `PUT /posts/{id}` on a missing post | 500 | **404** |
+| Duplicate email at registration | 500 | **409** |
+| Duplicate username at registration | 500 | **409** |
+
+### Admins were silently treated as strangers
+
+`PostService.deletePost` read `getRoles().contains("ADMIN")` — a `Set<Role>` compared against a `String`, which is never true, so the admin arm of the ownership check was dead code. It now compares role names.
+
+### `VerificationTokenService.cleanupExpiredTokens()` was never called
+
+The method existed but carried no `@Scheduled` annotation, so expired verification tokens accumulated forever. It now runs alongside the password-reset sweep.
+
+### Scheduled jobs ran once per replica
+
+Both used plain Spring scheduling with no locking, so two instances meant two concurrent deletion sweeps at 02:00. [ShedLock](../architecture/scheduled-tasks.md) now takes a row lock in the `shedlock` table, created by the baseline migration.
+
+### A stray duplicate of the request templates
+
+`src/main/resources/docs/http-template copy/` was an unmaintained copy still carrying the old, incorrect `/api/...` URLs. Deleted.

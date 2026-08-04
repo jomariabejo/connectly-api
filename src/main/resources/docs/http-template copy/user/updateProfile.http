@@ -1,9 +1,0 @@
-### Update User Profile
-PUT http://localhost:8080/api/users/me
-Authorization: Bearer TOKEN_HERE
-Content-Type: application/json
-
-{
-  "firstName": "John",
-  "lastName": "Doe"
-}

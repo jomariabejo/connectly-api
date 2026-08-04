@@ -5,7 +5,7 @@ title: Mockito test suite
 
 # The test suite
 
-139 tests across 12 classes. **None of them need a database, a mail server, or a running application.**
+143 tests across 12 classes. **None of them need a database, a mail server, or a running application.**
 
 ```bash
 ./gradlew unitTest
@@ -37,14 +37,14 @@ Coverage reports come from JaCoCo — `./gradlew test jacocoTestReport`, output 
 
 ## What is covered
 
-### Service unit tests — 80 tests
+### Service unit tests — 84 tests
 
 Pure Mockito: `@ExtendWith(MockitoExtension.class)`, `@Mock` for collaborators, `@InjectMocks` for the subject. No Spring context.
 
 | Class | Focus |
 |---|---|
 | `PostServiceTest` | Author assignment, ownership on read/update/delete, pagination envelope, filter forwarding |
-| `CommentServiceTest` | Post/author linking, `UnauthorizedAccessException` for non-authors, the fact that `getComment` ignores `postId` |
+| `CommentServiceTest` | Post/author linking, `UnauthorizedAccessException` for non-authors, `getComment` scoping to its `{postId}` |
 | `UserServiceTest` | The soft-delete lifecycle — 30-day scheduling, reactivation, grace-period boundaries, the scheduled purge |
 | `AuthenticationServiceTest` | Signup hashing and disabled state, login, verification, both reset flows, rate limiting, password strength |
 | `PostLikeServiceTest` | Toggle on/off, idempotent create, private posts reporting not-found |
@@ -135,11 +135,14 @@ assertThat(TimeUnit.MILLISECONDS.toDays(graceMillis)).isBetween(29L, 30L);
 
 ## Things the tests caught
 
-Writing this suite surfaced three defects:
+Writing this suite surfaced defects the code had been hiding:
 
-1. **Validation errors returned 500.** `GlobalExceptionHandler`'s catch-all `@ExceptionHandler(Exception.class)` intercepted `MethodArgumentNotValidException` before Spring could map it to 400 — every malformed body in the API came back as a server error. Fixed by adding an explicit handler.
-2. **The application could not start.** `PostLikeController` declared `@PostMapping("/{postId}/likes/toggle")` under a class-level `@RequestMapping("/{postId}")`; Spring Boot 3's `PathPatternParser` refuses to capture the same variable twice and aborted the context. Fixed, with a regression guard in `PostLikeControllerTest`.
-3. **Unmatched URLs return 500 for authenticated callers.** The same catch-all swallows `NoResourceFoundException`. Documented in [known issues](../reference/known-issues.md) rather than changed.
+1. **The application could not start.** `PostLikeController` mapped `/{postId}/{postId}/likes/toggle`; Spring Boot 3's `PathPatternParser` refuses to capture the same variable twice and aborted the context, so no endpoint served any request. `PostLikeControllerTest` now fails at context load if a duplicate segment returns.
+2. **Validation errors returned 500.** The catch-all `@ExceptionHandler(Exception.class)` intercepted `MethodArgumentNotValidException` before Spring could map it to 400 — every malformed body in the API came back as a server error.
+3. **Unmatched URLs, wrong verbs and unparseable bodies all returned 500** for the same reason.
+4. **Admins were silently treated as strangers.** `PostService.deletePost` compared a `Set<Role>` against the string `"ADMIN"` — never true, so the admin arm of the ownership check was dead code.
+
+All are fixed; see [known issues](../reference/known-issues.md) for the full list and the evidence.
 
 ## Adding a test
 

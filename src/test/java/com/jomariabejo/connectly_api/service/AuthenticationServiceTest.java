@@ -2,7 +2,11 @@ package com.jomariabejo.connectly_api.service;
 
 import com.jomariabejo.connectly_api.dto.LoginUserDto;
 import com.jomariabejo.connectly_api.dto.RegisterUserDto;
+import com.jomariabejo.connectly_api.exception.EmailAlreadyInUseException;
 import com.jomariabejo.connectly_api.exception.InvalidPasswordResetTokenException;
+import com.jomariabejo.connectly_api.exception.WeakPasswordException;
+import com.jomariabejo.connectly_api.model.Role;
+import com.jomariabejo.connectly_api.repository.RoleRepository;
 import com.jomariabejo.connectly_api.model.PasswordResetToken;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.repository.UserRepository;
@@ -72,10 +76,20 @@ class AuthenticationServiceTest {
     @Mock
     private AuditService auditService;
 
+    @Mock
+    private RoleRepository roleRepository;
+
     @InjectMocks
     private AuthenticationService authenticationService;
 
     private User user;
+
+    private static Role userRole() {
+        Role role = new Role();
+        role.setId(2L);
+        role.setName("USER");
+        return role;
+    }
 
     @BeforeEach
     void setUp() {
@@ -94,15 +108,17 @@ class AuthenticationServiceTest {
             RegisterUserDto dto = new RegisterUserDto();
             dto.setUsername("someone");
             dto.setEmail("someone@example.com");
-            dto.setPassword("plaintext");
+            dto.setPassword("PlaintextPass1!");
             return dto;
         }
 
         @Test
         @DisplayName("hashes the password, disables the account and issues a 24-hour token")
         void createsDisabledUserWithToken() {
+            when(userRepository.existsByUsername("someone")).thenReturn(false);
             when(userRepository.existsByEmail("someone@example.com")).thenReturn(false);
-            when(passwordEncoder.encode("plaintext")).thenReturn("hashed");
+            when(roleRepository.findByName("USER")).thenReturn(Optional.of(userRole()));
+            when(passwordEncoder.encode("PlaintextPass1!")).thenReturn("hashed");
             when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
             User result = authenticationService.signup(request());
@@ -129,7 +145,9 @@ class AuthenticationServiceTest {
         @Test
         @DisplayName("mails a verification link carrying the generated token")
         void mailsLinkWithToken() {
+            when(userRepository.existsByUsername(anyString())).thenReturn(false);
             when(userRepository.existsByEmail(anyString())).thenReturn(false);
+            when(roleRepository.findByName("USER")).thenReturn(Optional.of(userRole()));
             when(passwordEncoder.encode(anyString())).thenReturn("hashed");
             when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -143,16 +161,46 @@ class AuthenticationServiceTest {
         @Test
         @DisplayName("refuses an email that is already registered")
         void rejectsDuplicateEmail() {
+            when(userRepository.existsByUsername("someone")).thenReturn(false);
             when(userRepository.existsByEmail("someone@example.com")).thenReturn(true);
 
-            // A bare RuntimeException, so GlobalExceptionHandler maps this to 500 rather than the
-            // 409 that EmailAlreadyInUseException would produce.
+            // EmailAlreadyInUseException maps to 409. This used to be a bare RuntimeException,
+            // which the catch-all handler reported as 500.
             assertThatThrownBy(() -> authenticationService.signup(request()))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessage("Email already in use");
+                    .isInstanceOf(EmailAlreadyInUseException.class)
+                    .hasMessageContaining("someone@example.com");
 
             verify(userRepository, never()).save(any());
             verify(emailService, never()).sendVerificationEmail(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("grants the USER role, so the account has authorities from the start")
+        void grantsDefaultRole() {
+            when(userRepository.existsByUsername(anyString())).thenReturn(false);
+            when(userRepository.existsByEmail(anyString())).thenReturn(false);
+            when(roleRepository.findByName("USER")).thenReturn(Optional.of(userRole()));
+            when(passwordEncoder.encode(anyString())).thenReturn("hashed");
+            when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            User result = authenticationService.signup(request());
+
+            // Registration used to leave roles empty, which gave every account zero authorities.
+            assertThat(result.getRoles()).extracting(Role::getName).containsExactly("USER");
+            assertThat(result.getAuthorities()).extracting("authority").containsExactly("ROLE_USER");
+        }
+
+        @Test
+        @DisplayName("rejects a weak password with the same rules the reset flow uses")
+        void rejectsWeakPassword() {
+            RegisterUserDto weak = request();
+            weak.setPassword("admin123");   // no uppercase, no special character
+
+            assertThatThrownBy(() -> authenticationService.signup(weak))
+                    .isInstanceOf(WeakPasswordException.class)
+                    .hasMessageContaining("at least 8 characters");
+
+            verify(userRepository, never()).save(any());
         }
     }
 
@@ -348,7 +396,7 @@ class AuthenticationServiceTest {
             // Too short, no uppercase, no digit and no special character respectively.
             for (String weak : new String[]{"Ab1!", "newsecurepassword123!", "NewSecurePassword!", "NewSecurePassword123"}) {
                 assertThatThrownBy(() -> authenticationService.resetPassword("reset-token", null, weak))
-                        .isInstanceOf(RuntimeException.class)
+                        .isInstanceOf(WeakPasswordException.class)
                         .hasMessageContaining("Password must be at least 8 characters long");
             }
 

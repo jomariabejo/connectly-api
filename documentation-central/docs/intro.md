@@ -52,7 +52,7 @@ Tokens last one hour by default (`JWT_EXPIRATION_MS`).
 # 1. Register — the account starts disabled
 curl -X POST http://localhost:8080/auth/registration \
   -H 'Content-Type: application/json' \
-  -d '{"username":"someone","email":"someone@example.com","password":"admin123"}'
+  -d '{"username":"someone","email":"someone@example.com","password":"StrongPass1!"}'
 
 # 2. Verify — the token arrives by email (read it at http://localhost:8025)
 curl "http://localhost:8080/auth/verify?token=THE_TOKEN"
@@ -60,7 +60,7 @@ curl "http://localhost:8080/auth/verify?token=THE_TOKEN"
 # 3. Log in — returns the JWT
 curl -X POST http://localhost:8080/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"someone@example.com","password":"admin123"}'
+  -d '{"email":"someone@example.com","password":"StrongPass1!"}'
 
 # 4. Use it
 curl http://localhost:8080/users/me -H "Authorization: Bearer $JWT"

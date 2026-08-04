@@ -3,6 +3,7 @@ package com.jomariabejo.connectly_api.controller;
 import com.jomariabejo.connectly_api.dto.*;
 import com.jomariabejo.connectly_api.exception.AccountDeletionScheduledException;
 import com.jomariabejo.connectly_api.exception.AccountReactivationFailedException;
+import com.jomariabejo.connectly_api.dto.user.UserResponseDto;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.model.VerificationToken;
 import com.jomariabejo.connectly_api.repository.VerificationTokenRepository;
@@ -52,9 +53,9 @@ public class UserController {
             @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token")
     })
     @GetMapping("/me")
-    public ResponseEntity<User> authenticatedUser() {
+    public ResponseEntity<UserResponseDto> authenticatedUser() {
         User currentUser = authenticationService.getAuthenticatedUser();
-        return ResponseEntity.ok(currentUser);
+        return ResponseEntity.ok(UserResponseDto.from(currentUser));
     }
 
     @Operation(
@@ -63,8 +64,10 @@ public class UserController {
                     + "Prefer /users/paginated.")
     @ApiResponse(responseCode = "200", description = "Users returned")
     @GetMapping("/")
-    public ResponseEntity<List<User>> allUsers() {
-        List<User> users = userService.allUsers();
+    public ResponseEntity<List<UserResponseDto>> allUsers() {
+        List<UserResponseDto> users = userService.allUsers().stream()
+                .map(UserResponseDto::from)
+                .toList();
 
         return ResponseEntity.ok(users);
     }
@@ -76,7 +79,7 @@ public class UserController {
                     + "or `lastName` switches to the filtered query.")
     @ApiResponse(responseCode = "200", description = "A PaginationDto page of users")
     @GetMapping("/paginated")
-    public ResponseEntity<PaginationDto<User>> getAllUsersPaginated(
+    public ResponseEntity<PaginationDto<UserResponseDto>> getAllUsersPaginated(
             @PageableDefault(size = 10, page = 0, sort = "id", direction = Sort.Direction.ASC) Pageable pageable,
             @RequestParam(required = false) String username,
             @RequestParam(required = false) String email,
@@ -84,7 +87,7 @@ public class UserController {
             @RequestParam(required = false) String lastName) {
 
         UserFilterDto filterDto = new UserFilterDto(username, email, firstName, lastName);
-        PaginationDto<User> result;
+        PaginationDto<UserResponseDto> result;
 
         if (hasFilters(filterDto)) {
             result = userService.getAllUsersWithFilters(filterDto, pageable);
@@ -219,7 +222,7 @@ public class UserController {
             @PathVariable Long id,
             @RequestBody(required = false) AdminDeleteAccountRequestDto requestDto) {
         
-        Optional<User> userOpt = userService.getUserById(id);
+        Optional<User> userOpt = userService.getAnyUserById(id);
         
         if (userOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
@@ -264,7 +267,7 @@ public class UserController {
             return ResponseEntity.badRequest().body("Extension days must be greater than 0");
         }
         
-        Optional<User> userOpt = userService.getUserById(id);
+        Optional<User> userOpt = userService.getAnyUserById(id);
         
         if (userOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
@@ -294,8 +297,10 @@ public class UserController {
     })
     @GetMapping("/admin/users/scheduled-deletion")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<User>> getUsersScheduledForDeletion() {
-        List<User> scheduledUsers = userService.getUsersScheduledForDeletion();
+    public ResponseEntity<List<UserResponseDto>> getUsersScheduledForDeletion() {
+        List<UserResponseDto> scheduledUsers = userService.getUsersScheduledForDeletion().stream()
+                .map(UserResponseDto::from)
+                .toList();
         return ResponseEntity.ok(scheduledUsers);
     }
 }

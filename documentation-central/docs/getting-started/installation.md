@@ -76,7 +76,7 @@ MAIL_PORT=1026 ./gradlew bootRun
 # 1. Register
 curl -X POST http://localhost:8080/auth/registration \
   -H 'Content-Type: application/json' \
-  -d '{"username":"someone","email":"someone@example.com","password":"admin123"}'
+  -d '{"username":"someone","email":"someone@example.com","password":"StrongPass1!"}'
 
 # 2. Open http://localhost:8025, read the verification mail, then:
 curl "http://localhost:8080/auth/verify?token=THE_TOKEN_FROM_THE_EMAIL"
@@ -84,7 +84,7 @@ curl "http://localhost:8080/auth/verify?token=THE_TOKEN_FROM_THE_EMAIL"
 # 3. Log in and keep the token
 JWT=$(curl -s -X POST http://localhost:8080/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"someone@example.com","password":"admin123"}' | jq -r .token)
+  -d '{"email":"someone@example.com","password":"StrongPass1!"}' | jq -r .token)
 
 # 4. Call something protected
 curl http://localhost:8080/users/me -H "Authorization: Bearer $JWT"

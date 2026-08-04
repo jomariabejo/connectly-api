@@ -5,7 +5,7 @@ title: Schema
 
 # Data model
 
-Eight tables. PostgreSQL only — `post.metadata` uses `JSONB`.
+Nine tables (eight domain plus ShedLock's). PostgreSQL only — `post.metadata` uses `JSONB`.
 
 ```mermaid
 erDiagram
@@ -82,10 +82,14 @@ erDiagram
     }
 ```
 
-:::warning The live schema is generated, not from `schema.sql`
-`spring.sql.init.mode=never`, so [`schema.sql`](https://github.com/jomariabejo/connectly-api/blob/main/src/main/resources/schema.sql) is **never executed**. Hibernate builds the real schema from the entity classes according to `JPA_DDL_AUTO` (`create-drop` by default).
+:::info The schema is owned by Flyway
+[`db/migration/V1__baseline_schema.sql`](https://github.com/jomariabejo/connectly-api/blob/main/src/main/resources/db/migration/V1__baseline_schema.sql) creates every table, seeds the `role` rows, and declares `ON DELETE CASCADE` on each foreign key to `app_user`. Hibernate runs with `JPA_DDL_AUTO=validate`, so it checks the entities against these tables and refuses to start if they disagree.
 
-`schema.sql` is therefore reference documentation, and it has drifted: it declares `ON DELETE CASCADE` on three foreign keys that are `NO ACTION` in the generated schema, and names the verification column `verificationToken` where the entity produces `verification_token`. Trust the entities. See [known issues](../reference/known-issues.md).
+This replaced `schema.sql`, which `spring.sql.init.mode=never` meant was **never executed** — Hibernate generated the live schema instead, and the file had drifted out of sync with the entities. See [known issues](../reference/known-issues.md).
+:::
+
+:::tip Add a migration, do not edit V1
+Once `V1` has been applied its checksum is recorded in `flyway_schema_history`; editing it makes Flyway refuse to start. Add `V2__your_change.sql` alongside it.
 :::
 
 ## `app_user`
@@ -158,8 +162,8 @@ The `User` entity — also Spring Security's `UserDetails`.
 
 Many-to-many, fetched `EAGER`. `getAuthorities()` prefixes each name with `ROLE_`.
 
-:::caution No rows are ever written to `user_roles`
-`schema.sql` would seed the two roles, but it never runs — and nothing in the application assigns a role to a user anyway. Every account has zero authorities. See [Security](../architecture/security.md).
+:::note Seeded and assigned
+The baseline migration seeds `ADMIN` and `USER`, and registration grants `USER` to every new account. Nothing ever ran the seed before, and nothing assigned a role, so every account had zero authorities. See [Security](../architecture/security.md).
 :::
 
 ## `verification_token`
@@ -171,7 +175,7 @@ Many-to-many, fetched `EAGER`. `getAuthorities()` prefixes each name with `ROLE_
 | `user_id` | `bigint` | FK, unique — one token per user |
 | `expiry_date` | `timestamp` | |
 
-Written by `RegistrationListener` with a UUID **different** from the one on `app_user.verification_token`, and reused as the account-reactivation token after `DELETE /users/me`. See [Authentication](../api/authentication.md).
+Written by `RegistrationListener` using **the same** value as `app_user.verification_token`, and reused as the account-reactivation token after `DELETE /users/me`. The listener used to generate a second, different UUID here, which broke `/auth/registrationConfirm`. See [Authentication](../api/authentication.md).
 
 ## `password_reset_token`
 
@@ -188,9 +192,19 @@ Written by `RegistrationListener` with a UUID **different** from the one on `app
 
 Swept hourly by [`PasswordResetTokenCleanupTask`](../architecture/scheduled-tasks.md).
 
+## `shedlock`
+
+| Column | Type | Notes |
+|---|---|---|
+| `name` | `varchar(64)` | PK — one row per scheduled job |
+| `lock_until`, `locked_at` | `timestamp` | |
+| `locked_by` | `varchar(255)` | |
+
+Backs [ShedLock](../architecture/scheduled-tasks.md), so a job runs once across all replicas rather than once each.
+
 ## Indexes
 
-From `schema.sql` (reference only — Hibernate generates its own):
+Created by the baseline migration:
 
 ```sql
 CREATE INDEX idx_user_username ON app_user (username);
@@ -205,4 +219,4 @@ CREATE INDEX idx_password_reset_token_expiry_date ON password_reset_token (expir
 
 ## Managing the schema for real
 
-For anything beyond local development, set `JPA_DDL_AUTO=validate` and own the DDL yourself — Flyway or Liquibase rather than `schema.sql`, which nothing currently executes. See [Configuration](../getting-started/configuration.md).
+Add a new `V<n>__description.sql` under `src/main/resources/db/migration` for every change and let `validate` catch drift. `FLYWAY_ENABLED=false` turns migrations off if you manage the schema some other way. See [Configuration](../getting-started/configuration.md).

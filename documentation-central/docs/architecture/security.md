@@ -50,16 +50,12 @@ Plus method-level `@PreAuthorize("hasRole('ADMIN')")` on the three admin endpoin
 
 ## Roles
 
-`schema.sql` seeds `ADMIN` and `USER` into the `role` table, and `User` has a `@ManyToMany` to it. `getAuthorities()` prefixes each with `ROLE_`.
+The [Flyway baseline](../data-model/schema.md) seeds `ADMIN` and `USER` into the `role` table, and `User` has a `@ManyToMany` to it. `getAuthorities()` prefixes each name with `ROLE_`.
 
-:::caution Nothing assigns a role
-Registration creates a user with an empty `roles` set, and there is no endpoint to grant one. Every account therefore has **no authorities**, which means:
+Registration grants **`USER`** to every new account, so a freshly registered user holds `ROLE_USER` from the start.
 
-- `/user/**` and `/admin/**` are unreachable for everyone
-- the three `@PreAuthorize("hasRole('ADMIN')")` endpoints always `403`
-- `anyRequest().authenticated()` still works, so the main API is unaffected
-
-To create an admin today you must write to `user_roles` by hand:
+:::note Granting ADMIN
+There is no endpoint for it — do it directly:
 
 ```sql
 INSERT INTO user_roles (user_id, role_id)
@@ -67,7 +63,11 @@ SELECT u.id, r.id FROM app_user u, role r
 WHERE u.email = 'you@example.com' AND r.name = 'ADMIN';
 ```
 
-Note that `JPA_DDL_AUTO=create-drop` wipes this on every restart. See [known issues](../reference/known-issues.md).
+This now survives a restart. It did not use to: `JPA_DDL_AUTO=create-drop` rebuilt the schema on every start, so hand-granted roles vanished.
+:::
+
+:::info Previously
+Registration left `roles` empty, giving every account **zero** authorities. `/user/**`, `/admin/**` and all three `@PreAuthorize("hasRole('ADMIN')")` endpoints were unreachable by anyone. See [known issues](../reference/known-issues.md).
 :::
 
 ## Tokens
@@ -91,12 +91,12 @@ There is no refresh-token flow and no revocation list — a token is valid until
 
 BCrypt via `BCryptPasswordEncoder`. Raw passwords are never stored.
 
-Strength rules apply on **reset** only:
+Strength rules apply to **registration and reset alike**:
 
 - ≥ `PASSWORD_MIN_LENGTH` characters (8)
 - one uppercase letter, one digit, one special character
 
-Registration enforces only `@NotBlank`, so weak passwords can be set at sign-up. See [known issues](../reference/known-issues.md).
+Failing them is a `400` with `error: "Password too weak"`. Registration used to enforce only `@NotBlank`, so an account could be created with a password its owner could never reset back to.
 
 ## Other posture notes
 
@@ -104,7 +104,7 @@ Registration enforces only `@NotBlank`, so weak passwords can be set at sign-up.
 
 **Sessions are `STATELESS`** — nothing is stored server-side between requests.
 
-**CORS is not applied.** Two configurations exist and neither takes effect, because the filter chain never calls `.cors(…)`. Browser clients on another origin cannot call the API. See [Configuration](../getting-started/configuration.md).
+**CORS is applied** from a single `CorsConfigurationSource` bean driven by `CORS_ALLOWED_ORIGINS` and `CORS_ALLOWED_METHODS`. It previously existed but was never consulted, because the filter chain did not call `.cors(…)`.
 
 **Security logging is at `DEBUG`** by default (`LOG_LEVEL_SECURITY`), which logs authentication detail on every request. Lower it to `WARN` outside development.
 
@@ -112,9 +112,9 @@ Registration enforces only `@NotBlank`, so weak passwords can be set at sign-up.
 
 | Situation | Status |
 |---|---|
-| No token on a protected endpoint | `403` |
-| Expired or malformed token | `403` |
-| Valid token, wrong owner | `401` (`UnauthorizedAccessException`) |
+| No token on a protected endpoint | `401` |
+| Expired or malformed token | `401` |
+| Valid token, wrong owner | `403` (`UnauthorizedAccessException`) |
 | Valid token, missing role | `403` |
 
-That `401`/`403` split is the inverse of the usual convention — see [Errors](../api/errors.md).
+`JwtAuthenticationEntryPoint` produces the `401`s and `JwtAccessDeniedHandler` the role-based `403`s, both in the standard [error body](../api/errors.md). This split used to be inverted.

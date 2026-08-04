@@ -5,6 +5,7 @@ import com.jomariabejo.connectly_api.dto.PostFilterDto;
 import com.jomariabejo.connectly_api.dto.post.CreatePostDto;
 import com.jomariabejo.connectly_api.dto.post.PostResponseDto;
 import com.jomariabejo.connectly_api.dto.post.UpdatePostDto;
+import com.jomariabejo.connectly_api.exception.PostNotFoundException;
 import com.jomariabejo.connectly_api.exception.UnauthorizedAccessException;
 import com.jomariabejo.connectly_api.mapper.PostMapper;
 import com.jomariabejo.connectly_api.model.Post;
@@ -181,14 +182,15 @@ class PostServiceTest {
         }
 
         @Test
-        @DisplayName("throws a bare RuntimeException when the post is missing")
+        @DisplayName("throws PostNotFoundException when the post is missing")
         void throwsWhenMissing() {
             when(postRepository.findById(99L)).thenReturn(Optional.empty());
 
-            // Note: a plain RuntimeException, so GlobalExceptionHandler maps this to 500, not 404.
+            // Was a bare RuntimeException, which the catch-all handler reported as 500;
+            // the mapped exception gives the 404 a caller expects.
             assertThatThrownBy(() -> postService.updatePost(99L, new UpdatePostDto(), author))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessage("Post not found");
+                    .isInstanceOf(PostNotFoundException.class)
+                    .hasMessageContaining("99");
         }
     }
 

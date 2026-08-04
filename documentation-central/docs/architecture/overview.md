@@ -108,7 +108,9 @@ Full column detail in [the data model](../data-model/schema.md).
 | Bean | Defined in | Purpose |
 |---|---|---|
 | `SecurityFilterChain` | `SecurityConfiguration` | Path rules, stateless sessions, filter ordering |
-| `CorsConfigurationSource` | `SecurityConfiguration` | Declared but never applied — see [Configuration](../getting-started/configuration.md) |
+| `CorsConfigurationSource` | `SecurityConfiguration` | Driven by `CORS_ALLOWED_ORIGINS` / `CORS_ALLOWED_METHODS` |
+| `JwtAuthenticationEntryPoint`, `JwtAccessDeniedHandler` | `config` | The 401/403 split, in the standard error body |
+| `LockProvider` | `SchedulerLockConfig` | ShedLock, so scheduled jobs run once across replicas |
 | `UserDetailsService`, `PasswordEncoder`, `AuthenticationManager`, `AuthenticationProvider` | `ApplicationConfiguration` | Authentication wiring; BCrypt hashing |
 | `JavaMailSender` | `MailConfig` | SMTP transport |
 | `MessageSource` | `AppConfig` | Message bundles |

@@ -14,10 +14,25 @@ The caller's profile, resolved from the token.
 | Status | When |
 |---|---|
 | `200` | Returned |
-| `403` | Missing or invalid token |
+| `401` | Missing or invalid token |
 
-:::warning The response includes the password hash
-Like registration, this returns the raw `User` entity — `password` (BCrypt hash), `verificationToken` and all. There is no `UserDto` projection on this path. See [known issues](../reference/known-issues.md).
+```json
+{
+  "id": 1,
+  "username": "someone",
+  "email": "someone@example.com",
+  "firstName": null,
+  "lastName": null,
+  "enabled": true,
+  "roles": ["USER"],
+  "deletedAt": null,
+  "scheduledDeletionAt": null,
+  "autoReactivationEnabled": true
+}
+```
+
+:::info No credentials in the response
+This — along with the user listings and every embedded comment author — used to serialize the raw `User` entity, BCrypt hash included. See [known issues](../reference/known-issues.md).
 :::
 
 ## `GET /users/`
@@ -152,8 +167,16 @@ Pushes `scheduledDeletionAt` further out.
 
 Accounts whose `scheduled_deletion_at` has already passed — i.e. those the next [`ScheduledDeletionTask`](../architecture/scheduled-tasks.md) run will permanently delete.
 
-:::caution Roles are not seeded
-`schema.sql` inserts `ADMIN` and `USER` rows, but registration assigns **no** role, and there is no endpoint to grant one. Every account starts with an empty `roles` set, so nothing can reach these endpoints without a manual `INSERT` into `user_roles`. See [known issues](../reference/known-issues.md).
+:::note Granting ADMIN
+Registration grants `USER`, not `ADMIN`, and there is no endpoint for promotion. Grant it directly:
+
+```sql
+INSERT INTO user_roles (user_id, role_id)
+SELECT u.id, r.id FROM app_user u, role r
+WHERE u.email = 'you@example.com' AND r.name = 'ADMIN';
+```
+
+These endpoints also resolve users **regardless of soft-delete state** — which is the point, since they exist to manage accounts already scheduled for deletion. They previously used an active-only lookup, so force-delete answered 404 for exactly the accounts it was meant to purge. See [known issues](../reference/known-issues.md).
 :::
 
 ## There is no profile update endpoint

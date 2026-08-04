@@ -45,7 +45,7 @@ Create an account.
 {
   "username": "helloworld",
   "email": "test@gmail.com",
-  "password": "admin123"
+  "password": "StrongPass1!"
 }
 ```
 
@@ -53,33 +53,40 @@ Create an account.
 |---|---|
 | `username` | Required, non-blank, unique |
 | `email` | Required, valid address, unique |
-| `password` | Required, non-blank — **no strength rules apply here** |
+| `password` | Required, and must pass the same strength rules as password reset |
 
-**Responses**
-
-| Status | When |
-|---|---|
-| `200` | Created, verification email dispatched |
-| `400` | Validation failed — body carries the offending fields |
-| `500` | Email already registered, or the mail server was unreachable |
-
-:::warning The response body leaks secrets
-This endpoint returns the whole `User` entity, which includes the **BCrypt password hash** and the **verification token**:
+**Response** — `200`
 
 ```json
 {
   "id": 1,
-  "password": "$2a$10$HqgA60KmLNFh34j0TFX7V…",
-  "verificationToken": "bd7ce86a-7b1c-478c-b0fe-a458d3ee5055",
-  …
+  "username": "helloworld",
+  "email": "test@gmail.com",
+  "firstName": null,
+  "lastName": null,
+  "enabled": false,
+  "roles": ["USER"],
+  "autoReactivationEnabled": true,
+  "createdAt": "2026-08-04T00:33:42.692+00:00",
+  "updatedAt": "2026-08-04T00:33:42.692+00:00"
 }
 ```
 
-Anyone who can see the response can verify the account without access to the mailbox. Do not surface this body to end users. See [known issues](../reference/known-issues.md).
+The account is created with the `USER` role and stays `enabled: false` until verified.
+
+| Status | When |
+|---|---|
+| `200` | Created, verification email dispatched |
+| `400` | Validation failed, or the password is too weak |
+| `409` | Username or email already registered |
+| `500` | The mail server was unreachable |
+
+:::info No credentials in the response
+This used to return the raw `User` entity, hash and verification token included — which let anyone who saw the response activate the account without the mailbox. It now returns a projection that omits `password`, `verificationToken` and `expiryDate`. See [known issues](../reference/known-issues.md).
 :::
 
-:::note Weak passwords are accepted at sign-up
-`RegisterUserDto` only enforces `@NotBlank`. The uppercase/digit/special-character rules exist solely on `POST /auth/reset-password`, so `a` is a valid registration password but an invalid reset password.
+:::note Password rules apply here too
+`admin123` is rejected: registration and reset share one definition of strong — 8+ characters with an uppercase letter, a digit and a special character. Registration used to accept anything non-blank.
 :::
 
 ---
@@ -93,7 +100,7 @@ Exchange credentials for a JWT. **Authentication is by email**, not username.
 ```json
 {
   "email": "test@gmail.com",
-  "password": "admin123"
+  "password": "StrongPass1!"
 }
 ```
 
@@ -135,27 +142,10 @@ The older confirmation route, backed by the `verification_token` table rather th
 | `200` | `Your account has been successfully activated. You can now login.` |
 | `400` | `Invalid verification token` |
 
-:::warning Two verification paths, two different tokens
-Registering once produces **two unrelated tokens** for the same account:
+:::note Both verification endpoints accept the emailed token
+`/auth/verify` reads `app_user.verification_token`; `/auth/registrationConfirm` reads the `verification_token` table. Registration writes **the same value** to both, so either endpoint works with the token from the email, and both check expiry.
 
-| Token | Stored in | Checked by | Emailed? |
-|---|---|---|---|
-| `472098eb-…` | `app_user.verification_token` | `GET /auth/verify` | ✅ yes |
-| `ee162fd2-…` | `verification_token` table | `GET /auth/registrationConfirm` | ❌ no |
-
-`AuthenticationService.signup` writes the column, then `RegistrationListener` independently generates a *second* UUID for the table. The verification email carries the first one.
-
-So `/auth/registrationConfirm` rejects the token users actually receive:
-
-```bash
-$ curl "http://localhost:8080/auth/registrationConfirm?token=472098eb-…"
-Invalid verification token          # 400
-
-$ curl "http://localhost:8080/auth/verify?token=472098eb-…"
-Email verified successfully.        # 200
-```
-
-**Use `/auth/verify`.** `/auth/registrationConfirm` only accepts the table token, which no user is ever given, and it does not check expiry. See [known issues](../reference/known-issues.md).
+They used to hold two different UUIDs — `RegistrationListener` generated its own for the table — so `/auth/registrationConfirm` rejected the token users were actually sent. See [known issues](../reference/known-issues.md).
 :::
 
 ---
@@ -237,9 +227,9 @@ Tokens are single-use and expire after `PASSWORD_RESET_EXPIRY_MINUTES` (15). An 
 ```bash
 JWT=$(curl -s -X POST http://localhost:8080/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"test@gmail.com","password":"admin123"}' | jq -r .token)
+  -d '{"email":"test@gmail.com","password":"StrongPass1!"}' | jq -r .token)
 
 curl http://localhost:8080/users/me -H "Authorization: Bearer $JWT"
 ```
 
-A missing, malformed or expired token gets **`403`**, not `401` — see [Errors](./errors.md).
+A missing, malformed or expired token gets **`401`**; a valid token without the right ownership or role gets **`403`**. See [Errors](./errors.md).

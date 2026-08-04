@@ -95,11 +95,11 @@ class PostLikeControllerTest {
 
         mockMvc.perform(post("/10/likes/toggle")).andExpect(status().isOk());
 
-        // The doubled path must not reach a handler. Asserted as "added no dispatch" rather than
-        // "404", because GlobalExceptionHandler's catch-all @ExceptionHandler(Exception.class)
-        // intercepts Spring's own NoResourceFoundException and reports 500 for any unmatched URL.
+        // The doubled path must not reach a handler. It now answers a clean 404 -- the handler for
+        // Spring's own NoResourceFoundException preserves that status instead of letting the
+        // catch-all report 500.
         mockMvc.perform(post("/10/10/likes/toggle"))
-                .andExpect(status().is5xxServerError());
+                .andExpect(status().isNotFound());
         verify(postLikeService, times(1)).togglePostLike(anyLong(), any(User.class));
     }
 

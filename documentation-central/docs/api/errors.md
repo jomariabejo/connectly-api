@@ -33,12 +33,16 @@ Some endpoints bypass this and return a bare string or a `GenericResponse` inste
 |---|---|---|
 | `400` | `Validation failed` | A `@Valid` request body failed its constraints |
 | `400` | `Account reactivation failed` | Bad/expired reactivation token, or the grace period has passed |
+| `400` | `Password too weak` | Password fails the strength rules (registration or reset) |
+| `401` | `Unauthorized` | No token, or a malformed/expired one |
 | `401` | `Invalid credentials` | Bad email or password |
-| `401` | `Unauthorized access` | Authenticated, but not the owner of the resource |
+| `403` | `Forbidden` | Authenticated, but not the owner of the resource — or missing a role |
 | `404` | `Post not found` | No post with that id |
 | `404` | `Comment not found` | No comment with that id |
+| `404` | `Not Found` | Unknown URL |
+| `405` | `Method Not Allowed` | Wrong HTTP verb for that path |
 | `409` | `User already exists` | Duplicate username |
-| `409` | `Email already in use` | Duplicate email *(see the caveat below)* |
+| `409` | `Email already in use` | Duplicate email |
 | `410` | `Account scheduled for deletion` | The account is inside its deletion grace period |
 | `500` | `An unexpected error occurred` | Anything else |
 
@@ -59,40 +63,45 @@ Multiple violations are joined with `, ` and sorted by field name.
 
 ## Things that surprise people
 
-### `403`, not `401`, when the token is missing
+### `401` vs `403`
 
-Spring Security rejects unauthenticated requests before they reach a controller, and this configuration answers `403`:
+The conventional split:
+
+| Situation | Status |
+|---|---|
+| No token, malformed token, expired token | `401` |
+| Valid token, not the owner of the resource | `403` |
+| Valid token, missing a required role | `403` |
 
 ```bash
 $ curl -i http://localhost:8080/users/me
-HTTP/1.1 403
+HTTP/1.1 401
+{"status":401,"error":"Unauthorized",
+ "message":"Authentication required. Send a bearer token from POST /auth/login."}
 ```
 
-A `401` from this API means "you are authenticated but not permitted" (`UnauthorizedAccessException`) — the opposite of the usual convention.
+### An unauthenticated request to an unknown URL returns `401`
 
-### An unknown URL returns `403`
-
-```bash
-$ curl -i http://localhost:8080/no/such/route
-HTTP/1.1 403
-```
-
-`anyRequest().authenticated()` matches before routing, so an unmatched path is indistinguishable from an unauthorized one. Authenticated requests to unknown paths hit the catch-all handler and get `500` rather than `404`.
+Security runs before routing, so an unmatched path is indistinguishable from an unauthorized one until you are authenticated. **With** a valid token you get a proper `404`.
 
 ### `GET /posts/{id}` returns `403` for a post that does not exist
 
 Deliberate — see [Posts](./posts.md). A missing post and someone else's post are made indistinguishable.
 
-### Some "not found" cases return `500`
+### Framework errors keep their own status
 
-Not every missing-resource path throws a mapped exception. These throw a bare `RuntimeException`, which the catch-all turns into `500`:
+Anything Spring raises with a status of its own is passed through rather than flattened to `500`:
 
-| Call | Expected | Actual |
-|---|---|---|
-| `PUT /posts/{id}` on a missing post | `404` | `500` |
-| `POST /auth/registration` with a duplicate email | `409` | `500` |
+```bash
+$ curl -H "Authorization: Bearer $JWT" http://localhost:8080/no/such/route
+{"status":404,"error":"Not Found","message":"No static resource no/such/route."}
 
-`EmailAlreadyInUseException` exists and maps to `409`, but `AuthenticationService.signup` throws `RuntimeException("Email already in use")` instead. See [known issues](../reference/known-issues.md).
+$ curl -X PATCH -H "Authorization: Bearer $JWT" http://localhost:8080/posts/1   # 405
+$ curl -X POST  -H "Authorization: Bearer $JWT" -H 'Content-Type: application/json' \
+    -d 'not json' http://localhost:8080/posts                                    # 400
+```
+
+All of these used to return `500`. See [known issues](../reference/known-issues.md).
 
 ### Password reset never reveals whether an account exists
 
