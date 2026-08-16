@@ -86,7 +86,7 @@ public class PostController {
     })
     @PutMapping("/{id}")
     public ResponseEntity<PostResponseDto> updatePost(@PathVariable Long id,
-                                                      @RequestBody UpdatePostDto updatePostDto) {
+                                                      @Valid @RequestBody UpdatePostDto updatePostDto) {
         User currentUser = authenticationService.getAuthenticatedUser();
 
         PostResponseDto updatedPost = postService.updatePost(id, updatePostDto, currentUser);

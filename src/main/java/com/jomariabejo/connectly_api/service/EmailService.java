@@ -1,6 +1,5 @@
 package com.jomariabejo.connectly_api.service;
 
-import com.jomariabejo.connectly_api.exception.GlobalExceptionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.mail.SimpleMailMessage;
@@ -10,7 +9,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class EmailService {
     private final JavaMailSender mailSender;
-    private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final Logger logger = LoggerFactory.getLogger(EmailService.class);
 
     public EmailService(JavaMailSender mailSender) {
         this.mailSender = mailSender;

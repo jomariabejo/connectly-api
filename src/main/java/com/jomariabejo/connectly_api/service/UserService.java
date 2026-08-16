@@ -338,6 +338,9 @@ public class UserService {
         if (user.getDeletedAt() == null) {
             return false; // Not deleted
         }
+        if (user.getScheduledDeletionAt() == null) {
+            return false; // Deleted but no schedule recorded — treat as outside the grace period
+        }
 
         return user.getScheduledDeletionAt().after(new Date());
     }

@@ -6,14 +6,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 @Service
 @RequiredArgsConstructor
 public class AuditService {
     private static final Logger logger = LoggerFactory.getLogger(AuditService.class);
-    private static final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    // DateTimeFormatter is immutable and thread-safe, unlike the SimpleDateFormat it replaced.
+    private static final DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     /**
      * Logs password reset initiation (email or OTP request)
@@ -21,7 +22,7 @@ public class AuditService {
     public void logPasswordResetInitiated(User user, String method) {
         logger.info(
             "PASSWORD_RESET_INITIATED | timestamp={} | userId={} | email={} | method={} | ipAddress={}",
-            dateFormat.format(new Date()),
+            dateFormat.format(LocalDateTime.now()),
             user.getId(),
             user.getEmail(),
             method,
@@ -36,7 +37,7 @@ public class AuditService {
         String status = success ? "SUCCESS" : "FAILURE";
         logger.info(
             "PASSWORD_RESET_ATTEMPT | timestamp={} | userId={} | email={} | method={} | status={} | reason={} | ipAddress={}",
-            dateFormat.format(new Date()),
+            dateFormat.format(LocalDateTime.now()),
             user.getId(),
             user.getEmail(),
             method,
@@ -52,7 +53,7 @@ public class AuditService {
     public void logInvalidResetAttempt(String email, String method, String reason) {
         logger.warn(
             "PASSWORD_RESET_INVALID_ATTEMPT | timestamp={} | email={} | method={} | reason={} | ipAddress={}",
-            dateFormat.format(new Date()),
+            dateFormat.format(LocalDateTime.now()),
             email,
             method,
             reason,
@@ -66,7 +67,7 @@ public class AuditService {
     public void logRateLimitExceeded(String email, String action) {
         logger.warn(
             "PASSWORD_RESET_RATE_LIMIT_EXCEEDED | timestamp={} | email={} | action={} | ipAddress={}",
-            dateFormat.format(new Date()),
+            dateFormat.format(LocalDateTime.now()),
             email,
             action,
             getClientIp()

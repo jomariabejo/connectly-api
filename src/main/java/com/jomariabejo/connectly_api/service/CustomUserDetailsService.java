@@ -44,15 +44,21 @@ public class CustomUserDetailsService implements UserDetailsService {
                 // User is deleted and either outside grace period or auto-reactivation is disabled
                 throw new AccountDeletionScheduledException(
                         "Account has been marked for deletion",
-                        java.time.Instant.ofEpochMilli(user.getDeletedAt().getTime())
-                                .atZone(java.time.ZoneId.systemDefault()).toLocalDateTime(),
-                        java.time.Instant.ofEpochMilli(user.getScheduledDeletionAt().getTime())
-                                .atZone(java.time.ZoneId.systemDefault()).toLocalDateTime()
+                        toLocalDateTime(user.getDeletedAt()),
+                        toLocalDateTime(user.getScheduledDeletionAt())
                 );
             }
         }
         
         return user;
+    }
+
+    private static java.time.LocalDateTime toLocalDateTime(java.util.Date date) {
+        if (date == null) {
+            return null;
+        }
+        return java.time.Instant.ofEpochMilli(date.getTime())
+                .atZone(java.time.ZoneId.systemDefault()).toLocalDateTime();
     }
 
     private Set<GrantedAuthority> getAuthorities(Set<Role> roles) {

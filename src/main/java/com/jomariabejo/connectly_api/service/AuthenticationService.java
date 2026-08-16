@@ -139,11 +139,11 @@ public class AuthenticationService {
 
     public User getAuthenticatedUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        logger.info("Authenticated user: " + authentication.getPrincipal());
         if (authentication == null || !(authentication.getPrincipal() instanceof User)) {
             logger.error("Authentication required");
             throw new UnauthorizedAccessException("User not authenticated");
         }
+        logger.info("Authenticated user: {}", authentication.getPrincipal());
         return (User) authentication.getPrincipal();
     }
 

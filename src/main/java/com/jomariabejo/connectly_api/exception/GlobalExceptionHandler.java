@@ -76,6 +76,26 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * The password-reset exceptions are usually answered locally by
+     * {@code AuthenticationController}'s catch blocks; these mappings cover any other route that
+     * lets them escape, which previously fell through to the 500 catch-all.
+     */
+    @ExceptionHandler(InvalidPasswordResetTokenException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidPasswordResetTokenException(InvalidPasswordResetTokenException ex) {
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "Invalid password reset token", ex);
+    }
+
+    @ExceptionHandler(PasswordResetTokenExpiredException.class)
+    public ResponseEntity<ErrorResponse> handlePasswordResetTokenExpiredException(PasswordResetTokenExpiredException ex) {
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "Password reset token expired", ex);
+    }
+
+    @ExceptionHandler(PasswordResetAttemptsExceededException.class)
+    public ResponseEntity<ErrorResponse> handlePasswordResetAttemptsExceededException(PasswordResetAttemptsExceededException ex) {
+        return buildErrorResponse(HttpStatus.TOO_MANY_REQUESTS, "Too many password reset attempts", ex);
+    }
+
+    /**
      * Bean-validation failures on {@code @Valid @RequestBody} arguments.
      *
      * <p>This handler has to exist explicitly. {@code ExceptionHandlerExceptionResolver} runs before

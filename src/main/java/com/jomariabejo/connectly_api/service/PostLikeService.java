@@ -10,7 +10,6 @@ import com.jomariabejo.connectly_api.repository.PostRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
-import javax.swing.text.html.Option;
 import java.util.List;
 import java.util.Optional;
 
@@ -52,7 +51,7 @@ public class PostLikeService {
         Optional<Post> optionalPost = postRepository.findById(postId);
         if (optionalPost.isPresent()) {
 
-            boolean isPostPublic = optionalPost.get().getPrivacy().equals("public");
+            boolean isPostPublic = "public".equals(optionalPost.get().getPrivacy());
             if (isPostPublic) {
                 Post post = optionalPost.get();
                 return likeRespository.countByPost(post);
@@ -96,8 +95,13 @@ public class PostLikeService {
     }
 
     public boolean isPostLikedByUser(Long postId, User currentUser) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'isPostLikedByUser'");
+        Optional<Post> optionalPost = postRepository.findById(postId);
+
+        if (optionalPost.isEmpty()) {
+            throw new PostNotFoundException(postId);
+        }
+
+        return likeRespository.findByUserAndPost(currentUser, optionalPost.get()).isPresent();
     }
 
 }

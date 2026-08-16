@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
@@ -49,7 +50,7 @@ public class CommentController {
     @PostMapping
     public ResponseEntity<CreateCommentDto> addComment(
             @PathVariable Long postId,
-            @RequestBody CreateCommentDto createCommentDto
+            @Valid @RequestBody CreateCommentDto createCommentDto
     ) {
         log.info("Adding comment to post {}", postId);
         CreateCommentDto savedComment = commentService.addCommentToPost(
@@ -90,7 +91,7 @@ public class CommentController {
     public ResponseEntity<CommentResponseDto> updateComment(
             @PathVariable Long postId,
             @PathVariable Long commentId,
-            @RequestBody UpdateCommentDto updateCommentDto
+            @Valid @RequestBody UpdateCommentDto updateCommentDto
     ) {
         log.info("Updating comment {} for post {}", commentId, postId);
         CommentResponseDto updatedComment = commentService.updateComment(

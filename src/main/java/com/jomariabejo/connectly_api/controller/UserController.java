@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -135,7 +136,7 @@ public class UserController {
         VerificationToken token = new VerificationToken();
         token.setUser(deletedUser);
         token.setToken(reactivationToken);
-        token.setExpiryDate(new Date(System.currentTimeMillis() + 30 * 24 * 60 * 60 * 1000)); // 30 days
+        token.setExpiryDate(new Date(System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000)); // 30 days
         verificationTokenRepository.save(token);
         
         // Convert timestamps to LocalDateTime
@@ -172,7 +173,7 @@ public class UserController {
     })
     @PostMapping("/reactivate")
     public ResponseEntity<String> reactivateAccount(
-            @RequestBody ReactivateAccountRequestDto requestDto) {
+            @Valid @RequestBody ReactivateAccountRequestDto requestDto) {
         
         Optional<VerificationToken> tokenOpt =
         verificationTokenRepository.findByToken(requestDto.getReactivationToken());
