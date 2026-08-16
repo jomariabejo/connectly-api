@@ -24,6 +24,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -140,11 +141,17 @@ class UserControllerTest {
     @Test
     @DisplayName("DELETE /users/me answers 202 Accepted -- deletion is scheduled, not immediate")
     void schedulesAccountDeletion() throws Exception {
-        User deleted = user;
+        // A separate instance for the service's return value (same id -- it is the same account,
+        // and User equality is id-based). The controller must build its response and the
+        // reactivation token from what softDeleteUser returned, not from the authenticated user,
+        // and isSameAs below can only prove that with two distinct references.
+        User deleted = new User("someone", "hashed", "someone@example.com");
+        deleted.setId(1L);
         deleted.setDeletedAt(new Date());
         deleted.setScheduledDeletionAt(daysFromNow(30));
         deleted.setActive(false);
 
+        user.setAutoReactivationEnabled(false);
         when(authenticationService.getAuthenticatedUser()).thenReturn(user);
         when(userService.softDeleteUser(user)).thenReturn(deleted);
 
@@ -157,8 +164,18 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.deletedAt").exists())
                 .andExpect(jsonPath("$.scheduledDeletionAt").exists());
 
-        // A reactivation token is minted and stored so the deletion email has something to link to.
-        verify(verificationTokenRepository).save(any(VerificationToken.class));
+        // The body's flag is applied to the authenticated user before the soft delete.
+        ArgumentCaptor<User> softDeleted = ArgumentCaptor.forClass(User.class);
+        verify(userService).softDeleteUser(softDeleted.capture());
+        assertThat(softDeleted.getValue()).isSameAs(user);
+        assertThat(softDeleted.getValue().isAutoReactivationEnabled()).isTrue();
+
+        // A reactivation token is minted against the service's return value and stored so the
+        // deletion email has something to link to.
+        ArgumentCaptor<VerificationToken> savedToken = ArgumentCaptor.forClass(VerificationToken.class);
+        verify(verificationTokenRepository).save(savedToken.capture());
+        assertThat(savedToken.getValue().getUser()).isSameAs(deleted);
+        assertThat(savedToken.getValue().getToken()).isNotBlank();
     }
 
     @Test
@@ -172,6 +189,32 @@ class UserControllerTest {
 
         mockMvc.perform(delete("/users/me"))
                 .andExpect(status().isAccepted());
+    }
+
+    @Test
+    @DisplayName("DELETE /users/me persists a reactivation token that expires ~30 days out "
+            + "(regression: int overflow in 30*24*60*60*1000 put the expiry ~19.7 days in the PAST)")
+    void deleteAccount_persistsReactivationTokenValidForThirtyDays() throws Exception {
+        user.setDeletedAt(new Date());
+        user.setScheduledDeletionAt(daysFromNow(30));
+
+        when(authenticationService.getAuthenticatedUser()).thenReturn(user);
+        when(userService.softDeleteUser(user)).thenReturn(user);
+
+        long before = System.currentTimeMillis();
+        mockMvc.perform(delete("/users/me"))
+                .andExpect(status().isAccepted());
+        long after = System.currentTimeMillis();
+
+        ArgumentCaptor<VerificationToken> saved = ArgumentCaptor.forClass(VerificationToken.class);
+        verify(verificationTokenRepository).save(saved.capture());
+
+        // The old int expression wrapped to a negative offset, so every token was born expired
+        // and no reactivation link could ever work. The fixed 30L arithmetic must land the
+        // expiry roughly 30 days out; the 29..31-day band absorbs however long the call took.
+        assertThat(saved.getValue().getExpiryDate().getTime())
+                .as("reactivation token expiry")
+                .isBetween(before + TimeUnit.DAYS.toMillis(29), after + TimeUnit.DAYS.toMillis(31));
     }
 
     @Test
@@ -206,6 +249,35 @@ class UserControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Account reactivation failed"));
 
+        verify(userService, never()).reactivateUser(any());
+    }
+
+    @Test
+    @DisplayName("POST /users/reactivate answers 400 for a blank token, before any lookup")
+    void rejectsBlankReactivationToken() throws Exception {
+        // @Valid on the request body plus @NotBlank on the DTO field turns this away at the
+        // door; without them a blank token fell through to the repository lookup.
+        mockMvc.perform(post("/users/reactivate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reactivationToken\":\"   \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation failed"))
+                .andExpect(jsonPath("$.message")
+                        .value("reactivationToken: Reactivation token is required"));
+
+        verify(verificationTokenRepository, never()).findByToken(any());
+        verify(userService, never()).reactivateUser(any());
+    }
+
+    @Test
+    @DisplayName("POST /users/reactivate answers 400, not 500, when the body is missing")
+    void rejectsMissingReactivationBody() throws Exception {
+        mockMvc.perform(post("/users/reactivate")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Bad Request"));
+
+        verify(verificationTokenRepository, never()).findByToken(any());
         verify(userService, never()).reactivateUser(any());
     }
 

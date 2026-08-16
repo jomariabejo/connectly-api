@@ -194,6 +194,18 @@ class UserServiceTest {
 
             assertThat(userService.isWithinGracePeriod(user)).isFalse();
         }
+
+        @Test
+        @DisplayName("false, not NPE, when the user is deleted but no schedule was recorded")
+        void falseWhenScheduleMissing() {
+            // Regression for the null-guard: a row with deletedAt set but scheduledDeletionAt
+            // NULL used to throw a NullPointerException here instead of simply counting as
+            // outside the grace period.
+            user.setDeletedAt(new Date());
+            user.setScheduledDeletionAt(null);
+
+            assertThat(userService.isWithinGracePeriod(user)).isFalse();
+        }
     }
 
     @Nested
@@ -287,6 +299,20 @@ class UserServiceTest {
             assertThat(result.getContent()).singleElement()
                     .satisfies(dto -> assertThat(dto.getEmail()).isEqualTo(user.getEmail()));
             assertThat(result.getTotalElements()).isEqualTo(1);
+            assertThat(result.isHasNext()).isFalse();
+        }
+
+        @Test
+        @DisplayName("maps an empty page to an empty envelope with zeroed totals")
+        void mapsEmptyPage() {
+            Pageable pageable = PageRequest.of(0, 10);
+            when(userRepository.findAll(pageable)).thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+            PaginationDto<UserResponseDto> result = userService.getAllUsersPaginated(pageable);
+
+            assertThat(result.getContent()).isEmpty();
+            assertThat(result.getTotalElements()).isZero();
+            assertThat(result.getTotalPages()).isZero();
             assertThat(result.isHasNext()).isFalse();
         }
 

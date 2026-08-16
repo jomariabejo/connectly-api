@@ -159,6 +159,50 @@ class PostControllerTest {
     }
 
     @Test
+    @DisplayName("PUT /posts/{id} answers 400 when the new title is shorter than 5 characters")
+    void rejectsShortTitleOnUpdate() throws Exception {
+        mockMvc.perform(put("/posts/10")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"abc\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation failed"))
+                .andExpect(jsonPath("$.message").value("title: Title must be between 5 and 100 characters"));
+
+        verify(postService, never()).updatePost(anyLong(), any(), any());
+    }
+
+    @Test
+    @DisplayName("PUT /posts/{id} accepts a body without a title -- @Size ignores null, so partial updates stay legal")
+    void acceptsUpdateWithoutTitle() throws Exception {
+        post.setContent("Updated content");
+        when(postService.updatePost(eq(10L), any(UpdatePostDto.class), eq(author)))
+                .thenReturn(new PostResponseDto(post));
+
+        mockMvc.perform(put("/posts/10")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"content\":\"Updated content\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").value("Updated content"));
+
+        ArgumentCaptor<UpdatePostDto> request = ArgumentCaptor.forClass(UpdatePostDto.class);
+        verify(postService).updatePost(eq(10L), request.capture(), eq(author));
+        assertThat(request.getValue().getTitle()).isNull();
+        assertThat(request.getValue().getContent()).isEqualTo("Updated content");
+    }
+
+    @Test
+    @DisplayName("GET /posts/{id} answers 400 when the id is not numeric")
+    void rejectsNonNumericId() throws Exception {
+        // MethodArgumentTypeMismatchException, mapped to 400 by
+        // GlobalExceptionHandler.handleSpringErrorResponse rather than the 500 catch-all.
+        mockMvc.perform(get("/posts/abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+
+        verify(postService, never()).getPost(anyLong(), any(User.class));
+    }
+
+    @Test
     @DisplayName("PUT /posts/{id} answers 403 when the caller is not the author")
     void rejectsUpdateFromNonAuthor() throws Exception {
         when(postService.updatePost(anyLong(), any(UpdatePostDto.class), any(User.class)))

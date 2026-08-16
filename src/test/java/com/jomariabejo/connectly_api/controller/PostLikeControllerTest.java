@@ -19,6 +19,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -124,6 +125,18 @@ class PostLikeControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Total likes retrieved."))
                 .andExpect(jsonPath("$.data").value(3));
+    }
+
+    @Test
+    @DisplayName("GET /{postId}/likes/count answers 400 for a non-numeric postId")
+    void rejectsNonNumericPostId() throws Exception {
+        // "abc" cannot bind to the Long {postId}, so Spring raises a type-mismatch error before
+        // the handler runs. The advice maps it to 400 -- without that mapping the catch-all used
+        // to report the typo as a 500.
+        mockMvc.perform(get("/abc/likes/count"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Bad Request"));
+        verifyNoInteractions(postLikeService);
     }
 
     @Test

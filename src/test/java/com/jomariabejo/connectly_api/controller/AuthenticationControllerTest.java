@@ -3,6 +3,9 @@ package com.jomariabejo.connectly_api.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jomariabejo.connectly_api.dto.LoginUserDto;
 import com.jomariabejo.connectly_api.dto.RegisterUserDto;
+import com.jomariabejo.connectly_api.exception.AccountDeletionScheduledException;
+import com.jomariabejo.connectly_api.exception.InvalidCredentialsException;
+import com.jomariabejo.connectly_api.exception.UserAlreadyExistsException;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.repository.UserRepository;
 import com.jomariabejo.connectly_api.repository.VerificationTokenRepository;
@@ -19,6 +22,8 @@ import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.Map;
 import java.util.Optional;
 
@@ -230,5 +235,116 @@ class AuthenticationControllerTest {
                         .content("{\"token\":\"stale\",\"otp\":null,\"newPassword\":\"NewSecurePassword123!\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Token has expired"));
+    }
+
+    @Test
+    @DisplayName("POST /auth/login rejects a blank email with 400 before the service runs")
+    void rejectsLoginWithBlankEmail() throws Exception {
+        String invalid = objectMapper.writeValueAsString(Map.of(
+                "email", "",
+                "password", "plaintext"));
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalid))
+                .andExpect(status().isBadRequest());
+
+        verify(authenticationService, never()).authenticate(any());
+    }
+
+    @Test
+    @DisplayName("POST /auth/login rejects a malformed email with 400 before the service runs")
+    void rejectsLoginWithMalformedEmail() throws Exception {
+        String invalid = objectMapper.writeValueAsString(Map.of(
+                "email", "not-an-email",
+                "password", "plaintext"));
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalid))
+                .andExpect(status().isBadRequest());
+
+        verify(authenticationService, never()).authenticate(any());
+    }
+
+    @Test
+    @DisplayName("POST /auth/forgot-password/email answers 400 Validation failed for a malformed address")
+    void rejectsMalformedForgotPasswordEmail() throws Exception {
+        // Bean validation on ForgotPasswordRequest fails before the handler body runs, so this is
+        // a 400 from the advice -- never the controller's catch-all 429, which only sees
+        // exceptions thrown by the service (see reportsRateLimit above).
+        mockMvc.perform(post("/auth/forgot-password/email")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"not-an-email\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Validation failed"))
+                .andExpect(jsonPath("$.message").value("email: Malformed email address"));
+
+        verify(authenticationService, never()).initiatePasswordResetEmail(anyString());
+    }
+
+    @Test
+    @DisplayName("POST /auth/registration answers 409 with an ErrorResponse when the account already exists")
+    void reportsDuplicateRegistration() throws Exception {
+        RegisterUserDto request = new RegisterUserDto();
+        request.setUsername("someone");
+        request.setEmail("someone@example.com");
+        request.setPassword("plaintext");
+
+        when(authenticationService.signup(any(RegisterUserDto.class)))
+                .thenThrow(new UserAlreadyExistsException("Username already exists: someone"));
+
+        mockMvc.perform(post("/auth/registration")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.error").value("User already exists"))
+                .andExpect(jsonPath("$.message").value("Username already exists: someone"))
+                .andExpect(jsonPath("$.timestamp").isNumber());
+
+        // signup threw before the controller reached the event publisher.
+        assertThat(applicationEvents.stream(OnRegistrationCompleteEvent.class)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("POST /auth/login answers 401 with an ErrorResponse for invalid credentials")
+    void reportsInvalidCredentials() throws Exception {
+        LoginUserDto request = new LoginUserDto();
+        request.setEmail("someone@example.com");
+        request.setPassword("wrong-password");
+
+        when(authenticationService.authenticate(any(LoginUserDto.class)))
+                .thenThrow(new InvalidCredentialsException("Invalid email or password"));
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.error").value("Invalid credentials"))
+                .andExpect(jsonPath("$.message").value("Invalid email or password"));
+    }
+
+    @Test
+    @DisplayName("POST /auth/login answers 410 GONE when the account is scheduled for deletion")
+    void reportsScheduledDeletion() throws Exception {
+        LoginUserDto request = new LoginUserDto();
+        request.setEmail("someone@example.com");
+        request.setPassword("plaintext");
+
+        LocalDateTime deletedAt = LocalDateTime.of(2026, Month.JANUARY, 1, 12, 0);
+        when(authenticationService.authenticate(any(LoginUserDto.class)))
+                .thenThrow(new AccountDeletionScheduledException(
+                        "This account is scheduled for deletion", deletedAt, deletedAt.plusDays(30)));
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isGone())
+                .andExpect(jsonPath("$.status").value(410))
+                .andExpect(jsonPath("$.error").value("Account scheduled for deletion"))
+                .andExpect(jsonPath("$.message").value("This account is scheduled for deletion"));
     }
 }

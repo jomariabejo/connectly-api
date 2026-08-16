@@ -4,6 +4,7 @@ import com.jomariabejo.connectly_api.model.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.MalformedJwtException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -102,6 +103,27 @@ class JwtServiceTest {
         // jjwt refuses to even parse a token that is past its expiry.
         assertThatThrownBy(() -> jwtService.isTokenValid(expired, user))
                 .isInstanceOf(ExpiredJwtException.class);
+    }
+
+    @Test
+    @DisplayName("rejects a string that is not a JWT at all")
+    void rejectsGarbageToken() {
+        // "not.a.jwt" has the right number of dots, but its header segment is not Base64URL-encoded
+        // JSON, so jjwt fails while deserializing it and wraps that in a MalformedJwtException.
+        assertThatThrownBy(() -> jwtService.extractUsername("not.a.jwt"))
+                .isInstanceOf(MalformedJwtException.class);
+    }
+
+    @Test
+    @DisplayName("rejects an empty or null token string")
+    void rejectsEmptyOrNullToken() {
+        // jjwt's parser starts with a Strings.hasText precondition on the raw token, so empty and
+        // null both fail that same guard with an IllegalArgumentException rather than any
+        // JwtException subtype.
+        assertThatThrownBy(() -> jwtService.extractUsername(""))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> jwtService.extractUsername(null))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

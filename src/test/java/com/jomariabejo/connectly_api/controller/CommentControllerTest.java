@@ -36,6 +36,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -217,5 +218,86 @@ class CommentControllerTest {
         verify(commentService).getPostCommentsWithFilters(eq(10L), filter.capture(), any(Pageable.class));
         assertThat(filter.getValue().getContent()).isEqualTo("Nice");
         verify(commentService, never()).getPostCommentsPaginated(anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("POST /posts/{postId}/comments answers 400 with a Validation failed body when the text is blank")
+    void rejectsBlankTextOnCreate() throws Exception {
+        mockMvc.perform(post("/posts/10/comments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"text\":\"   \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Validation failed"))
+                .andExpect(jsonPath("$.message").value("text: Comment is required"));
+
+        verify(commentService, never()).addCommentToPost(anyLong(), any(CreateCommentDto.class), any(User.class));
+    }
+
+    @Test
+    @DisplayName("PUT /posts/{postId}/comments/{commentId} answers 400 when the text is blank")
+    void rejectsBlankTextOnUpdate() throws Exception {
+        // UpdateCommentDto's @NotBlank carries no custom message, and the default one is
+        // locale-dependent -- so only the error title is pinned here, not the detail text.
+        mockMvc.perform(put("/posts/10/comments/100")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"text\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation failed"));
+
+        verify(commentService, never()).updateComment(anyLong(), any(UpdateCommentDto.class), any(User.class));
+    }
+
+    // The four tests below drive GlobalExceptionHandler.handleSpringErrorResponse through real
+    // routes: Spring raises the exception, the advice reads the status back off it (or defaults
+    // to 400) and answers with the status's reason phrase as the error title.
+
+    @Test
+    @DisplayName("POST /posts/{postId}/comments answers 400 for a malformed JSON body")
+    void rejectsMalformedJsonBody() throws Exception {
+        mockMvc.perform(post("/posts/10/comments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{not json"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"));
+
+        verify(commentService, never()).addCommentToPost(anyLong(), any(CreateCommentDto.class), any(User.class));
+    }
+
+    @Test
+    @DisplayName("POST /posts/{postId}/comments answers 400 when postId is not numeric")
+    void rejectsNonNumericPostId() throws Exception {
+        mockMvc.perform(post("/posts/abc/comments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"text\":\"Nice post!\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+
+        verify(commentService, never()).addCommentToPost(anyLong(), any(CreateCommentDto.class), any(User.class));
+    }
+
+    @Test
+    @DisplayName("POST /posts/{postId}/comments answers 415 for a text/plain body")
+    void rejectsUnsupportedContentType() throws Exception {
+        mockMvc.perform(post("/posts/10/comments")
+                        .contentType(MediaType.TEXT_PLAIN)
+                        .content("Nice post!"))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.status").value(415))
+                .andExpect(jsonPath("$.error").value("Unsupported Media Type"));
+
+        verify(commentService, never()).addCommentToPost(anyLong(), any(CreateCommentDto.class), any(User.class));
+    }
+
+    @Test
+    @DisplayName("PATCH /posts/{postId}/comments answers 405 -- the collection route only supports GET and POST")
+    void rejectsUnsupportedMethod() throws Exception {
+        mockMvc.perform(patch("/posts/10/comments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"text\":\"Nice post!\"}"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.status").value(405))
+                .andExpect(jsonPath("$.error").value("Method Not Allowed"));
     }
 }

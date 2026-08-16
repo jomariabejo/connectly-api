@@ -248,6 +248,22 @@ class PostServiceTest {
         }
 
         @Test
+        @DisplayName("maps an empty Page into an empty envelope")
+        void mapsEmptyPage() {
+            Pageable pageable = PageRequest.of(0, 10);
+            when(postRepository.findAll(pageable))
+                    .thenReturn(new PageImpl<>(List.<Post>of(), pageable, 0));
+
+            PaginationDto<PostResponseDto> result = postService.getAllPostsPaginated(pageable);
+
+            assertThat(result.getContent()).isEmpty();
+            assertThat(result.getTotalElements()).isZero();
+            assertThat(result.getTotalPages()).isZero();
+            assertThat(result.isHasNext()).isFalse();
+            assertThat(result.isHasPrevious()).isFalse();
+        }
+
+        @Test
         @DisplayName("passes every filter field through to the repository query")
         void forwardsFilters() {
             Pageable pageable = PageRequest.of(0, 10);

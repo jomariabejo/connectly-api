@@ -4,12 +4,14 @@ import com.jomariabejo.connectly_api.dto.LoginUserDto;
 import com.jomariabejo.connectly_api.dto.RegisterUserDto;
 import com.jomariabejo.connectly_api.exception.EmailAlreadyInUseException;
 import com.jomariabejo.connectly_api.exception.InvalidPasswordResetTokenException;
+import com.jomariabejo.connectly_api.exception.UnauthorizedAccessException;
 import com.jomariabejo.connectly_api.exception.WeakPasswordException;
 import com.jomariabejo.connectly_api.model.Role;
 import com.jomariabejo.connectly_api.repository.RoleRepository;
 import com.jomariabejo.connectly_api.model.PasswordResetToken;
 import com.jomariabejo.connectly_api.model.User;
 import com.jomariabejo.connectly_api.repository.UserRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -23,6 +25,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -233,6 +236,58 @@ class AuthenticationServiceTest {
 
             assertThatThrownBy(() -> authenticationService.authenticate(credentials()))
                     .isInstanceOf(BadCredentialsException.class);
+        }
+    }
+
+    /**
+     * {@code getAuthenticatedUser()} reads the thread-local {@link SecurityContextHolder}, so the
+     * context is cleared both before and after every test: before, so a context leaked by another
+     * test cannot mask the "not authenticated" paths, and after, so these tests never leak one
+     * themselves.
+     */
+    @Nested
+    @DisplayName("getAuthenticatedUser")
+    class GetAuthenticatedUser {
+
+        @BeforeEach
+        void clearContextBeforeTest() {
+            SecurityContextHolder.clearContext();
+        }
+
+        @AfterEach
+        void clearContextAfterTest() {
+            SecurityContextHolder.clearContext();
+        }
+
+        @Test
+        @DisplayName("throws UnauthorizedAccessException when the SecurityContext is empty")
+        void throwsWhenContextIsEmpty() {
+            // Regression: the principal used to be logged before the null check, so an empty
+            // context produced an NPE instead of the intended UnauthorizedAccessException.
+            assertThatThrownBy(() -> authenticationService.getAuthenticatedUser())
+                    .isInstanceOf(UnauthorizedAccessException.class)
+                    .hasMessage("User not authenticated");
+        }
+
+        @Test
+        @DisplayName("throws UnauthorizedAccessException when the principal is not a User")
+        void throwsForNonUserPrincipal() {
+            // Spring's anonymous authentication carries the String "anonymousUser" as principal.
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken("anonymousUser", "N/A"));
+
+            assertThatThrownBy(() -> authenticationService.getAuthenticatedUser())
+                    .isInstanceOf(UnauthorizedAccessException.class)
+                    .hasMessage("User not authenticated");
+        }
+
+        @Test
+        @DisplayName("returns the User principal from the SecurityContext")
+        void returnsUserPrincipal() {
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities()));
+
+            assertThat(authenticationService.getAuthenticatedUser()).isSameAs(user);
         }
     }
 

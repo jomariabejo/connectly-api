@@ -156,6 +156,54 @@ class PostLikeServiceTest {
             assertThatThrownBy(() -> postLikeService.countLikesByPost(99L))
                     .isInstanceOf(PostNotFoundException.class);
         }
+
+        @Test
+        @DisplayName("throws PostNotFoundException, not NPE, when the post's privacy is null")
+        void treatsNullPrivacyAsHidden() {
+            // Regression guard: the check used to read privacy.equals("public"), which threw a
+            // NullPointerException for a post with no privacy set. Flipping it to
+            // "public".equals(privacy) makes a null-privacy post behave like any non-public one.
+            post.setPrivacy(null);
+            when(postRepository.findById(10L)).thenReturn(Optional.of(post));
+
+            assertThatThrownBy(() -> postLikeService.countLikesByPost(10L))
+                    .isInstanceOf(PostNotFoundException.class);
+            verify(likeRespository, never()).countByPost(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("isPostLikedByUser")
+    class IsLiked {
+
+        @Test
+        @DisplayName("throws PostNotFoundException for an unknown post")
+        void throwsWhenPostMissing() {
+            when(postRepository.findById(99L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> postLikeService.isPostLikedByUser(99L, user))
+                    .isInstanceOf(PostNotFoundException.class)
+                    .hasMessageContaining("99");
+            verify(likeRespository, never()).findByUserAndPost(any(), any());
+        }
+
+        @Test
+        @DisplayName("reports true when the user's like exists")
+        void trueWhenLiked() {
+            when(postRepository.findById(10L)).thenReturn(Optional.of(post));
+            when(likeRespository.findByUserAndPost(user, post)).thenReturn(Optional.of(new Like(user, post)));
+
+            assertThat(postLikeService.isPostLikedByUser(10L, user)).isTrue();
+        }
+
+        @Test
+        @DisplayName("reports false when the user has not liked the post")
+        void falseWhenNotLiked() {
+            when(postRepository.findById(10L)).thenReturn(Optional.of(post));
+            when(likeRespository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
+
+            assertThat(postLikeService.isPostLikedByUser(10L, user)).isFalse();
+        }
     }
 
     @Nested

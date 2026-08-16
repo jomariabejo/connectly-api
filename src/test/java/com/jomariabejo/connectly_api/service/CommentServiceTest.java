@@ -283,6 +283,23 @@ class CommentServiceTest {
         }
 
         @Test
+        @DisplayName("maps an empty Page into an empty envelope without touching the mapper")
+        void mapsEmptyPage() {
+            Pageable pageable = PageRequest.of(0, 10);
+            when(commentRepository.findByPostId(10L, pageable))
+                    .thenReturn(new PageImpl<>(List.<Comment>of(), pageable, 0));
+
+            PaginationDto<CommentResponseDto> result = commentService.getPostCommentsPaginated(10L, pageable);
+
+            assertThat(result.getContent()).isEmpty();
+            assertThat(result.getTotalElements()).isZero();
+            assertThat(result.getTotalPages()).isZero();
+            assertThat(result.isHasNext()).isFalse();
+            assertThat(result.isHasPrevious()).isFalse();
+            // No stubbing of commentMapper here: with nothing to map, strict stubs would flag it.
+        }
+
+        @Test
         @DisplayName("passes the filter fields through to the repository query")
         void forwardsFilters() {
             Pageable pageable = PageRequest.of(0, 10);
