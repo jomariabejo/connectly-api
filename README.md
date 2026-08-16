@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/Flyway-CC0200?logo=flyway&logoColor=white" alt="Flyway" />
   <img src="https://img.shields.io/badge/Swagger-OpenAPI_3-85EA2D?logo=swagger&logoColor=black" alt="Swagger / OpenAPI 3" />
   <img src="https://img.shields.io/badge/Docusaurus-3.10-3ECC5F?logo=docusaurus&logoColor=white" alt="Docusaurus 3.10" />
-  <img src="https://img.shields.io/badge/Tests-143_passing-brightgreen?logo=junit5&logoColor=white" alt="143 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-263_passing-brightgreen?logo=junit5&logoColor=white" alt="263 tests passing" />
   <img src="https://img.shields.io/badge/Endpoints-24-blue?logo=fastapi&logoColor=white" alt="24 endpoints" />
   <img src="https://img.shields.io/badge/License-MIT-yellow?logo=opensourceinitiative&logoColor=white" alt="MIT License" />
 </p>
@@ -71,7 +71,7 @@ cd documentation-central && npm install && npm start   # docs at localhost:3000
 - **Role-based access** — `USER` granted at registration, `ADMIN` for privileged endpoints
 - **Background jobs** — daily permanent-deletion sweep, hourly expired-token cleanup, both lock-protected
 - **Zero-config startup** — every setting has a working default; `.env` only when you need to change one
-- **143 unit and slice tests** that need no database (see [Testing](#testing))
+- **263 unit and slice tests** that need no database (see [Testing](#testing))
 
 ---
 
@@ -270,10 +270,10 @@ A `200` with your profile means everything is wired up.
 
 ## Testing
 
-**143 tests** across 13 classes. **None of them need a database, a mail server, or a running application.**
+**263 tests** across 27 classes. **None of them need a database, a mail server, or a running application.**
 
 ```bash
-./gradlew unitTest   # 143 tests — no database required
+./gradlew unitTest   # 263 tests — no database required
 ./gradlew test       # adds ConnectlyApiApplicationTests, which needs PostgreSQL
 ```
 
@@ -286,7 +286,7 @@ A `200` with your profile means everything is wired up.
 
 `ConnectlyApiApplicationTests.contextLoads()` is a `@SpringBootTest`, so it starts the whole application. `unitTest` excludes it by name — use it in CI.
 
-### Service unit tests — 84 tests
+### Service unit tests — 143 tests
 
 Pure Mockito: `@ExtendWith(MockitoExtension.class)`, `@Mock` collaborators, `@InjectMocks` subject. No Spring context.
 
@@ -295,22 +295,41 @@ Pure Mockito: `@ExtendWith(MockitoExtension.class)`, `@Mock` collaborators, `@In
 | **`PostServiceTest`** | Author assignment, ownership on read/update/delete, pagination envelope, filter forwarding |
 | **`CommentServiceTest`** | Post/author linking, author-only edits, `getComment` scoping to its `{postId}` |
 | **`UserServiceTest`** | Soft-delete lifecycle — 30-day scheduling, reactivation, grace-period boundaries, dependant-ordered purge |
-| **`AuthenticationServiceTest`** | Signup hashing, role grant, password strength, login, verification, both reset flows, rate limiting |
-| **`PostLikeServiceTest`** | Toggle on/off, idempotent create, private posts reporting not-found |
-| **`JwtServiceTest`** | Token round-trip, extra claims, expiry, wrong user, foreign signature |
+| **`AuthenticationServiceTest`** | Signup hashing, role grant, password strength, login, verification, both reset flows, rate limiting, `SecurityContext` lookup |
+| **`PostLikeServiceTest`** | Toggle on/off, idempotent create, private/null-privacy posts reporting not-found, is-liked lookup |
+| **`JwtServiceTest`** | Token round-trip, extra claims, expiry, wrong user, foreign signature, malformed/empty tokens |
 | **`RateLimitingServiceTest`** | Threshold behaviour, per-address and per-action isolation, window expiry |
+| **`PasswordResetTokenServiceTest`** | Link and OTP token issue, prior-token invalidation, expiry/used/attempt-limit validation order |
+| **`VerificationTokenServiceTest`** | Token replacement on re-issue, expired-token burn, enable-on-verify |
+| **`CustomUserDetailsServiceTest`** | Login-time grace-period handling — auto-reactivation, deletion-scheduled rejection, null-schedule safety |
+| **`EmailServiceTest`** | Recipient/subject/body of all three mails, wrapped failures |
+| **`AuditServiceTest`** | Audit event markers and timestamp format (via a Logback `ListAppender`) |
 
-### Controller slice tests — 59 tests
+### Controller slice tests — 82 tests
 
 `@WebMvcTest` with `MockMvc`: real routing, real JSON serialization, real validation — mocked services.
 
 | Class | What it tests |
 |-------|---------------|
-| **`AuthenticationControllerTest`** | Registration, `@Valid` rejection, login payload, verification, both reset flows, the 429 path |
-| **`PostControllerTest`** | CRUD status codes, `@PageableDefault` binding, filter switching, the deliberate 403s |
-| **`CommentControllerTest`** | Nested routes, 201/204, author-only edits, pagination defaults |
-| **`UserControllerTest`** | Profile, the **202** on `DELETE /users/me`, reactivation, admin endpoints |
+| **`AuthenticationControllerTest`** | Registration, `@Valid` rejection, login payload + validation, verification, both reset flows, the 429 path, 409/401/410 error bodies |
+| **`PostControllerTest`** | CRUD status codes, `@PageableDefault` binding, filter switching, the deliberate 403s, update validation |
+| **`CommentControllerTest`** | Nested routes, 201/204, author-only edits, pagination defaults, blank-text/malformed-JSON/415/405 rejections |
+| **`UserControllerTest`** | Profile, the **202** on `DELETE /users/me`, 30-day reactivation-token expiry, reactivation validation, admin endpoints |
 | **`PostLikeControllerTest`** | Toggle semantics, like counting, regression guard on the route shape |
+| **`UserControllerSecurityTest`** | Filters **on**: `@PreAuthorize` on `/users/admin/**` denies plain users (403), challenges anonymous callers (401) |
+
+### Component tests — 38 tests
+
+Direct unit tests for the pieces between the layers.
+
+| Class | What it tests |
+|-------|---------------|
+| **`GlobalExceptionHandlerTest`** | Every exception→status mapping and the full `ErrorResponse` body |
+| **`JwtAuthenticationFilterTest`** | Bearer parsing, context population, pass-through and error delegation |
+| **`JwtAuthenticationEntryPointTest`** / **`JwtAccessDeniedHandlerTest`** | The 401/403 JSON bodies |
+| **`ScheduledDeletionTaskTest`** / **`PasswordResetTokenCleanupTaskTest`** | Delegation and exception swallowing in the background jobs |
+| **`RegistrationListenerTest`** | Verification-token creation on the registration event |
+| **`OtpGeneratorTest`** | Six-digit zero-padded OTPs, canonical UUID tokens |
 
 Coverage: `./gradlew test jacocoTestReport` → `build/reports/jacoco/test/html/`.
 
